@@ -1,40 +1,44 @@
-package main
+package ast
 
-type AST interface {
+import (
+	"github.com/lucasch37/spi-go/lexer"
+)
+
+type Node interface {
 	astNode()
 }
 
 type BinOp struct {
-	Left  AST
-	Token Token
-	Op    Token
-	Right AST
+	Left  Node
+	Token lexer.Token
+	Op    lexer.Token
+	Right Node
 }
 
 type UnaryOp struct {
-	Token Token
-	Op    Token
-	Expr  AST
+	Token lexer.Token
+	Op    lexer.Token
+	Expr  Node
 }
 
 type Num struct {
-	Token Token
+	Token lexer.Token
 	Value int
 }
 
 type Compound struct {
-	Children []AST
+	Children []Node
 }
 
 type Assign struct {
 	Left  Var
-	Token Token
-	Op    Token
-	Right AST
+	Token lexer.Token
+	Op    lexer.Token
+	Right Node
 }
 
 type Var struct {
-	Token Token
+	Token lexer.Token
 	Value string
 }
 

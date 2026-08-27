@@ -1,4 +1,4 @@
-package main
+package lexer
 
 import "strconv"
 
@@ -179,7 +179,6 @@ func isAlphaNumeric(b byte) bool {
 }
 
 func isAlpha(b byte) bool {
-
 	switch {
 	case 'a' <= b && b <= 'z':
 		return true

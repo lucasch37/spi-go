@@ -1,39 +1,45 @@
-package main
+package interpreter
+
+import (
+	"github.com/lucasch37/spi-go/ast"
+	"github.com/lucasch37/spi-go/lexer"
+	"github.com/lucasch37/spi-go/parser"
+)
 
 type Interpreter struct {
-	parser      *Parser
+	parser      *parser.Parser
 	GLOBALSCOPE map[string]int
 }
 
-func NewInterpreter(parser *Parser) *Interpreter {
+func NewInterpreter(parser *parser.Parser) *Interpreter {
 	return &Interpreter{
 		parser:      parser,
 		GLOBALSCOPE: make(map[string]int),
 	}
 }
 
-func (i *Interpreter) visit(node AST) int {
+func (i *Interpreter) visit(node ast.Node) int {
 	switch node := node.(type) {
 
-	case BinOp:
+	case ast.BinOp:
 		return i.visitBinOp(node)
 
-	case Num:
+	case ast.Num:
 		return i.visitNum(node)
 
-	case UnaryOp:
+	case ast.UnaryOp:
 		return i.visitUnaryOp(node)
 
-	case Compound:
+	case ast.Compound:
 		return i.visitCompound(node)
 
-	case NoOp:
+	case ast.NoOp:
 		return i.visitNoOp(node)
 
-	case Assign:
+	case ast.Assign:
 		return i.visitAssign(node)
 
-	case Var:
+	case ast.Var:
 		return i.visitVar(node)
 
 	default:
@@ -41,19 +47,19 @@ func (i *Interpreter) visit(node AST) int {
 	}
 }
 
-func (i *Interpreter) visitBinOp(node BinOp) int {
+func (i *Interpreter) visitBinOp(node ast.BinOp) int {
 	switch node.Op.Type {
 
-	case PLUS:
+	case lexer.PLUS:
 		return i.visit(node.Left) + i.visit(node.Right)
 
-	case MINUS:
+	case lexer.MINUS:
 		return i.visit(node.Left) - i.visit(node.Right)
 
-	case MUL:
+	case lexer.MUL:
 		return i.visit(node.Left) * i.visit(node.Right)
 
-	case DIV:
+	case lexer.DIV:
 		return i.visit(node.Left) / i.visit(node.Right)
 
 	default:
@@ -61,17 +67,17 @@ func (i *Interpreter) visitBinOp(node BinOp) int {
 	}
 }
 
-func (i *Interpreter) visitNum(node Num) int {
+func (i *Interpreter) visitNum(node ast.Num) int {
 	return node.Value
 }
 
-func (i *Interpreter) visitUnaryOp(node UnaryOp) int {
+func (i *Interpreter) visitUnaryOp(node ast.UnaryOp) int {
 	switch node.Op.Type {
 
-	case PLUS:
+	case lexer.PLUS:
 		return i.visit(node.Expr)
 
-	case MINUS:
+	case lexer.MINUS:
 		return i.visit(node.Expr) * -1
 
 	default:
@@ -79,24 +85,24 @@ func (i *Interpreter) visitUnaryOp(node UnaryOp) int {
 	}
 }
 
-func (i *Interpreter) visitCompound(node Compound) int {
+func (i *Interpreter) visitCompound(node ast.Compound) int {
 	for _, child := range node.Children {
 		i.visit(child)
 	}
 	return 0
 }
 
-func (i *Interpreter) visitNoOp(node NoOp) int {
+func (i *Interpreter) visitNoOp(node ast.NoOp) int {
 	return 0
 }
 
-func (i *Interpreter) visitAssign(node Assign) int {
+func (i *Interpreter) visitAssign(node ast.Assign) int {
 	varName := node.Left.Value
 	i.GLOBALSCOPE[varName] = int(i.visit(node.Right))
 	return 0
 }
 
-func (i *Interpreter) visitVar(node Var) int {
+func (i *Interpreter) visitVar(node ast.Var) int {
 	varName := node.Value
 	if val, exists := i.GLOBALSCOPE[varName]; exists {
 		return val

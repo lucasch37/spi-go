@@ -5,6 +5,10 @@ import (
 	"io"
 	"os"
 	"strings"
+
+	"github.com/lucasch37/spi-go/interpreter"
+	"github.com/lucasch37/spi-go/lexer"
+	"github.com/lucasch37/spi-go/parser"
 )
 
 func main() {
@@ -13,9 +17,9 @@ func main() {
 		panic(err)
 	}
 
-	lexer := NewLexer(strings.TrimSpace(string(data)))
-	parser := NewParser(lexer)
-	interpreter := NewInterpreter(parser)
+	lexer := lexer.NewLexer(strings.TrimSpace(string(data)))
+	parser := parser.NewParser(lexer)
+	interpreter := interpreter.NewInterpreter(parser)
 
 	interpreter.Interpret()
 	fmt.Println(interpreter.GLOBALSCOPE)
