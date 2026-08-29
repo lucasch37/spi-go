@@ -1,10 +1,19 @@
 package lexer
 
-import "strconv"
+import (
+	"fmt"
+	"strconv"
+	"strings"
+)
 
 var reservedKeywords = map[string]Token{
-	"BEGIN": {Type: BEGIN, Value: "BEGIN"},
-	"END":   {Type: END, Value: "END"},
+	"BEGIN":   {Type: BEGIN, Value: "BEGIN"},
+	"END":     {Type: END, Value: "END"},
+	"PROGRAM": {Type: PROGRAM, Value: "PROGRAM"},
+	"DIV":     {Type: INTEGER_DIV, Value: "DIV"},
+	"INTEGER": {Type: INTEGER, Value: "INTEGER"},
+	"VAR":     {Type: VAR, Value: "VAR"},
+	"REAL":    {Type: REAL, Value: "REAL"},
 }
 
 type Lexer struct {
@@ -42,6 +51,19 @@ func (l *Lexer) skipWhitespace() {
 	}
 }
 
+func (l *Lexer) skipComment() error {
+	for l.currentChar != 0 && l.currentChar != '}' {
+		l.advance()
+	}
+
+	if l.currentChar == 0 {
+		return fmt.Errorf("Unterminated comment")
+	}
+
+	l.advance()
+	return nil
+}
+
 func (l *Lexer) peek() byte {
 	peekPos := l.pos + 1
 
@@ -52,20 +74,45 @@ func (l *Lexer) peek() byte {
 	}
 }
 
-func (l *Lexer) integer() int {
-	result := ""
+func (l *Lexer) number() (Token, error) {
+	var result strings.Builder
 
 	for l.currentChar != 0 && l.currentChar >= '0' && l.currentChar <= '9' {
-		result += string(l.currentChar)
+		result.WriteString(string(l.currentChar))
 		l.advance()
 	}
 
-	value, err := strconv.Atoi(result)
-	if err != nil {
-		panic(err)
+	if l.currentChar == '.' {
+		result.WriteString(string(l.currentChar))
+		l.advance()
+
+		for l.currentChar != 0 && l.currentChar >= '0' && l.currentChar <= '9' {
+			result.WriteString(string(l.currentChar))
+			l.advance()
+		}
+
+		value, err := strconv.ParseFloat(result.String(), 64)
+
+		if err != nil {
+			return Token{}, err
+		}
+
+		return Token{
+			Type:  REAL_CONST,
+			Value: value,
+		}, nil
 	}
 
-	return value
+	value, err := strconv.Atoi(result.String())
+
+	if err != nil {
+		return Token{}, err
+	}
+
+	return Token{
+		Type:  INTEGER_CONST,
+		Value: value,
+	}, nil
 }
 
 func (l *Lexer) id() Token {
@@ -86,7 +133,7 @@ func (l *Lexer) id() Token {
 	}
 }
 
-func (l *Lexer) GetNextToken() Token {
+func (l *Lexer) GetNextToken() (Token, error) {
 	for l.currentChar != 0 {
 
 		if isWhitespace(l.currentChar) {
@@ -95,14 +142,11 @@ func (l *Lexer) GetNextToken() Token {
 		}
 
 		if l.currentChar >= '0' && l.currentChar <= '9' {
-			return Token{
-				Type:  INTEGER,
-				Value: l.integer(),
-			}
+			return l.number()
 		}
 
 		if isAlpha(l.currentChar) {
-			return l.id()
+			return l.id(), nil
 		}
 
 		if l.currentChar == ':' && l.peek() == '=' {
@@ -111,41 +155,56 @@ func (l *Lexer) GetNextToken() Token {
 			return Token{
 				Type:  ASSIGN,
 				Value: ":=",
-			}
+			}, nil
 		}
 
 		switch l.currentChar {
+		case '{':
+			l.advance()
+			if err := l.skipComment(); err != nil {
+				return Token{}, err
+			}
+			continue
+
 		case ';':
 			l.advance()
-			return Token{SEMI, ";"}
+			return Token{SEMI, ";"}, nil
 
 		case '.':
 			l.advance()
-			return Token{DOT, "."}
+			return Token{DOT, "."}, nil
 
 		case '+':
 			l.advance()
-			return Token{PLUS, "+"}
+			return Token{PLUS, "+"}, nil
 
 		case '-':
 			l.advance()
-			return Token{MINUS, "-"}
+			return Token{MINUS, "-"}, nil
 
 		case '*':
 			l.advance()
-			return Token{MUL, "*"}
+			return Token{MUL, "*"}, nil
+
+		case ':':
+			l.advance()
+			return Token{COLON, ":"}, nil
+
+		case ',':
+			l.advance()
+			return Token{COMMA, ","}, nil
 
 		case '/':
 			l.advance()
-			return Token{DIV, "/"}
+			return Token{FLOAT_DIV, "/"}, nil
 
 		case '(':
 			l.advance()
-			return Token{LPAREN, "("}
+			return Token{LPAREN, "("}, nil
 
 		case ')':
 			l.advance()
-			return Token{RPAREN, ")"}
+			return Token{RPAREN, ")"}, nil
 		}
 
 		l.error()
@@ -154,7 +213,7 @@ func (l *Lexer) GetNextToken() Token {
 	return Token{
 		Type:  EOF,
 		Value: nil,
-	}
+	}, nil
 }
 
 func isWhitespace(c byte) bool {

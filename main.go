@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"strings"
 
@@ -12,15 +11,29 @@ import (
 )
 
 func main() {
-	data, err := io.ReadAll(os.Stdin)
+	if len(os.Args) < 2 {
+		fmt.Fprintf(os.Stderr, "usage: %s <source.pas>\n", os.Args[0])
+		os.Exit(1)
+	}
+
+	data, err := os.ReadFile(os.Args[1])
 	if err != nil {
 		panic(err)
 	}
 
 	lexer := lexer.NewLexer(strings.TrimSpace(string(data)))
-	parser := parser.NewParser(lexer)
+	parser, err := parser.NewParser(lexer)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
 	interpreter := interpreter.NewInterpreter(parser)
 
-	interpreter.Interpret()
-	fmt.Println(interpreter.GLOBALSCOPE)
+	if err := interpreter.Interpret(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
+	fmt.Println(interpreter.GLOBAL_SCOPE)
 }

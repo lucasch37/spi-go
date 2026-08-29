@@ -1,117 +1,294 @@
 package interpreter
 
 import (
+	"fmt"
+
 	"github.com/lucasch37/spi-go/ast"
 	"github.com/lucasch37/spi-go/lexer"
 	"github.com/lucasch37/spi-go/parser"
 )
 
-type Interpreter struct {
-	parser      *parser.Parser
-	GLOBALSCOPE map[string]int
+type ObjectType string
+
+const (
+	INTEGER_OBJ ObjectType = "INTEGER"
+	REAL_OBJ    ObjectType = "REAL"
+)
+
+type Object interface {
+	Type() ObjectType
+	Inspect() string
 }
 
-func NewInterpreter(parser *parser.Parser) *Interpreter {
+type Integer struct {
+	Value int
+}
+
+func (i Integer) Type() ObjectType {
+	return INTEGER_OBJ
+}
+
+func (i Integer) Inspect() string {
+	return fmt.Sprintf("%d", i.Value)
+}
+
+type Real struct {
+	Value float64
+}
+
+func (r Real) Type() ObjectType {
+	return REAL_OBJ
+}
+
+func (r Real) Inspect() string {
+	return fmt.Sprintf("%g", r.Value)
+}
+
+type Interpreter struct {
+	parser       *parser.Parser
+	GLOBAL_SCOPE map[string]Object
+}
+
+func NewInterpreter(p *parser.Parser) *Interpreter {
 	return &Interpreter{
-		parser:      parser,
-		GLOBALSCOPE: make(map[string]int),
+		parser:       p,
+		GLOBAL_SCOPE: make(map[string]Object),
 	}
 }
 
-func (i *Interpreter) visit(node ast.Node) int {
+func (i *Interpreter) visit(node ast.Node) (Object, error) {
 	switch node := node.(type) {
-
-	case ast.BinOp:
+	case *ast.BinOp:
 		return i.visitBinOp(node)
 
-	case ast.Num:
-		return i.visitNum(node)
+	case *ast.IntegerLit:
+		return i.visitIntegerLit(node)
 
-	case ast.UnaryOp:
+	case *ast.RealLit:
+		return i.visitRealLit(node)
+
+	case *ast.UnaryOp:
 		return i.visitUnaryOp(node)
 
-	case ast.Compound:
+	case *ast.Compound:
 		return i.visitCompound(node)
 
-	case ast.NoOp:
+	case *ast.NoOp:
 		return i.visitNoOp(node)
 
-	case ast.Assign:
+	case *ast.Assign:
 		return i.visitAssign(node)
 
-	case ast.Var:
+	case *ast.Var:
 		return i.visitVar(node)
 
+	case *ast.Program:
+		return i.visitProgram(node)
+
+	case *ast.Block:
+		return i.visitBlock(node)
+
+	case *ast.VarDecl:
+		return i.visitVarDecl(node)
+
+	case *ast.Type:
+		return i.visitType(node)
+
 	default:
-		panic("No visit method for node")
+		return nil, fmt.Errorf("no visit method for %T", node)
 	}
 }
 
-func (i *Interpreter) visitBinOp(node ast.BinOp) int {
-	switch node.Op.Type {
+func (i *Interpreter) visitBinOp(node *ast.BinOp) (Object, error) {
+	left, err := i.visit(node.Left)
+	if err != nil {
+		return nil, err
+	}
 
+	right, err := i.visit(node.Right)
+	if err != nil {
+		return nil, err
+	}
+
+	// If either operand is REAL, perform floating-point arithmetic.
+	if left.Type() == REAL_OBJ || right.Type() == REAL_OBJ {
+		leftValue := toFloat(left)
+		rightValue := toFloat(right)
+
+		switch node.Op.Type {
+		case lexer.PLUS:
+			return Real{Value: leftValue + rightValue}, nil
+
+		case lexer.MINUS:
+			return Real{Value: leftValue - rightValue}, nil
+
+		case lexer.MUL:
+			return Real{Value: leftValue * rightValue}, nil
+
+		case lexer.FLOAT_DIV:
+			if rightValue == 0 {
+				panic("division by zero")
+			}
+			return Real{Value: leftValue / rightValue}, nil
+
+		default:
+			panic("Unknown binary operator")
+		}
+	}
+
+	// Both operands are INTEGER.
+	leftValue := left.(Integer).Value
+	rightValue := right.(Integer).Value
+
+	switch node.Op.Type {
 	case lexer.PLUS:
-		return i.visit(node.Left) + i.visit(node.Right)
+		return Integer{Value: leftValue + rightValue}, nil
 
 	case lexer.MINUS:
-		return i.visit(node.Left) - i.visit(node.Right)
+		return Integer{Value: leftValue - rightValue}, nil
 
 	case lexer.MUL:
-		return i.visit(node.Left) * i.visit(node.Right)
+		return Integer{Value: leftValue * rightValue}, nil
 
-	case lexer.DIV:
-		return i.visit(node.Left) / i.visit(node.Right)
+	case lexer.INTEGER_DIV:
+		if rightValue == 0 {
+			panic("division by zero")
+		}
+		return Integer{Value: leftValue / rightValue}, nil
+
+	case lexer.FLOAT_DIV:
+		if rightValue == 0 {
+			panic("division by zero")
+		}
+
+		// Use floating-point division for DIV.
+		return Real{Value: float64(leftValue) / float64(rightValue)}, nil
 
 	default:
 		panic("Unknown binary operator")
 	}
 }
 
-func (i *Interpreter) visitNum(node ast.Num) int {
-	return node.Value
-}
+func toFloat(obj Object) float64 {
+	switch value := obj.(type) {
+	case Integer:
+		return float64(value.Value)
 
-func (i *Interpreter) visitUnaryOp(node ast.UnaryOp) int {
-	switch node.Op.Type {
-
-	case lexer.PLUS:
-		return i.visit(node.Expr)
-
-	case lexer.MINUS:
-		return i.visit(node.Expr) * -1
+	case Real:
+		return value.Value
 
 	default:
-		panic("Unknown unary operator")
+		panic(fmt.Sprintf("Cannot convert %T to float", obj))
 	}
 }
 
-func (i *Interpreter) visitCompound(node ast.Compound) int {
+func (i *Interpreter) visitIntegerLit(node *ast.IntegerLit) (Object, error) {
+	return Integer{Value: node.Value}, nil
+}
+
+func (i *Interpreter) visitRealLit(node *ast.RealLit) (Object, error) {
+	return Real{Value: node.Value}, nil
+}
+
+func (i *Interpreter) visitUnaryOp(node *ast.UnaryOp) (Object, error) {
+	value, err := i.visit(node.Expr)
+	if err != nil {
+		return nil, err
+	}
+
+	switch node.Op.Type {
+	case lexer.PLUS:
+		return value, nil
+
+	case lexer.MINUS:
+		switch value := value.(type) {
+		case Integer:
+			return Integer{Value: -value.Value}, nil
+
+		case Real:
+			return Real{Value: -value.Value}, nil
+
+		default:
+			panic(fmt.Sprintf("Invalid unary operand: %s", value.Type()))
+		}
+
+	default:
+		return nil, fmt.Errorf("unknown unary operator: %s", node.Op.Type)
+	}
+}
+
+func (i *Interpreter) visitCompound(node *ast.Compound) (Object, error) {
 	for _, child := range node.Children {
-		i.visit(child)
+		if _, err := i.visit(child); err != nil {
+			return nil, err
+		}
 	}
-	return 0
+
+	return nil, nil
 }
 
-func (i *Interpreter) visitNoOp(node ast.NoOp) int {
-	return 0
+func (i *Interpreter) visitNoOp(node *ast.NoOp) (Object, error) {
+	return nil, nil
 }
 
-func (i *Interpreter) visitAssign(node ast.Assign) int {
+func (i *Interpreter) visitAssign(node *ast.Assign) (Object, error) {
 	varName := node.Left.Value
-	i.GLOBALSCOPE[varName] = int(i.visit(node.Right))
-	return 0
+	value, err := i.visit(node.Right)
+	if err != nil {
+		return nil, err
+	}
+
+	i.GLOBAL_SCOPE[varName] = value
+
+	return nil, nil
 }
 
-func (i *Interpreter) visitVar(node ast.Var) int {
+func (i *Interpreter) visitVar(node *ast.Var) (Object, error) {
 	varName := node.Value
-	if val, exists := i.GLOBALSCOPE[varName]; exists {
-		return val
-	} else {
+
+	value, exists := i.GLOBAL_SCOPE[varName]
+	if !exists {
 		panic("Variable not found: " + varName)
 	}
+
+	return value, nil
 }
 
-func (i *Interpreter) Interpret() int {
-	tree := i.parser.Parse()
-	return i.visit(tree)
+func (i *Interpreter) visitProgram(node *ast.Program) (Object, error) {
+	return i.visit(node.Block)
+}
+
+func (i *Interpreter) visitBlock(node *ast.Block) (Object, error) {
+	for _, declaration := range node.Declarations {
+		if _, err := i.visit(declaration); err != nil {
+			return nil, err
+		}
+	}
+
+	return i.visit(node.CompoundStatement)
+}
+
+func (i *Interpreter) visitVarDecl(node *ast.VarDecl) (Object, error) {
+	return nil, nil
+}
+
+func (i *Interpreter) visitType(node *ast.Type) (Object, error) {
+	return nil, nil
+}
+
+func (i *Interpreter) Interpret() error {
+	tree, err := i.parser.Parse()
+	if err != nil {
+		return err
+	}
+
+	if tree == nil {
+		return nil
+	}
+
+	if _, err := i.visit(tree); err != nil {
+		return err
+	}
+
+	return nil
 }
