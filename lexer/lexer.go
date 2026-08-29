@@ -30,8 +30,8 @@ func NewLexer(text string) *Lexer {
 	}
 }
 
-func (l *Lexer) error() {
-	panic("Invalid character")
+func (l *Lexer) error() error {
+	return fmt.Errorf("invalid character")
 }
 
 func (l *Lexer) advance() {

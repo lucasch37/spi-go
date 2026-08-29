@@ -112,8 +112,15 @@ func (i *Interpreter) visitBinOp(node *ast.BinOp) (Object, error) {
 
 	// If either operand is REAL, perform floating-point arithmetic.
 	if left.Type() == REAL_OBJ || right.Type() == REAL_OBJ {
-		leftValue := toFloat(left)
-		rightValue := toFloat(right)
+		leftValue, err := toFloat(left)
+		if err != nil {
+			return nil, err
+		}
+
+		rightValue, err := toFloat(right)
+		if err != nil {
+			return nil, err
+		}
 
 		switch node.Op.Type {
 		case lexer.PLUS:
@@ -127,12 +134,12 @@ func (i *Interpreter) visitBinOp(node *ast.BinOp) (Object, error) {
 
 		case lexer.FLOAT_DIV:
 			if rightValue == 0 {
-				panic("division by zero")
+				return nil, fmt.Errorf("Division by zero")
 			}
 			return Real{Value: leftValue / rightValue}, nil
 
 		default:
-			panic("Unknown binary operator")
+			return nil, fmt.Errorf("Unknown binary operator")
 		}
 	}
 
@@ -152,33 +159,33 @@ func (i *Interpreter) visitBinOp(node *ast.BinOp) (Object, error) {
 
 	case lexer.INTEGER_DIV:
 		if rightValue == 0 {
-			panic("division by zero")
+			return nil, fmt.Errorf("Division by zero")
 		}
 		return Integer{Value: leftValue / rightValue}, nil
 
 	case lexer.FLOAT_DIV:
 		if rightValue == 0 {
-			panic("division by zero")
+			return nil, fmt.Errorf("Division by zero")
 		}
 
 		// Use floating-point division for DIV.
 		return Real{Value: float64(leftValue) / float64(rightValue)}, nil
 
 	default:
-		panic("Unknown binary operator")
+		return nil, fmt.Errorf("Unknown binary operator: %s", node.Op.Type.String())
 	}
 }
 
-func toFloat(obj Object) float64 {
+func toFloat(obj Object) (float64, error) {
 	switch value := obj.(type) {
 	case Integer:
-		return float64(value.Value)
+		return float64(value.Value), nil
 
 	case Real:
-		return value.Value
+		return value.Value, nil
 
 	default:
-		panic(fmt.Sprintf("Cannot convert %T to float", obj))
+		return 0, fmt.Errorf("Cannot convert %T to float", obj)
 	}
 }
 
@@ -209,11 +216,11 @@ func (i *Interpreter) visitUnaryOp(node *ast.UnaryOp) (Object, error) {
 			return Real{Value: -value.Value}, nil
 
 		default:
-			panic(fmt.Sprintf("Invalid unary operand: %s", value.Type()))
+			return nil, fmt.Errorf("Invalid unary operand: %s", value.Type())
 		}
 
 	default:
-		return nil, fmt.Errorf("unknown unary operator: %s", node.Op.Type)
+		return nil, fmt.Errorf("unknown unary operator: %s", node.Op.Type.String())
 	}
 }
 
@@ -248,7 +255,7 @@ func (i *Interpreter) visitVar(node *ast.Var) (Object, error) {
 
 	value, exists := i.GLOBAL_SCOPE[varName]
 	if !exists {
-		panic("Variable not found: " + varName)
+		return nil, fmt.Errorf("Variable not found: %s", varName)
 	}
 
 	return value, nil
