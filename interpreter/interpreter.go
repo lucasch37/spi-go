@@ -5,7 +5,6 @@ import (
 
 	"github.com/lucasch37/spi-go/ast"
 	"github.com/lucasch37/spi-go/lexer"
-	"github.com/lucasch37/spi-go/parser"
 )
 
 type ObjectType string
@@ -45,13 +44,13 @@ func (r Real) Inspect() string {
 }
 
 type Interpreter struct {
-	parser       *parser.Parser
+	Tree         ast.Node
 	GLOBAL_SCOPE map[string]Object
 }
 
-func NewInterpreter(p *parser.Parser) *Interpreter {
+func NewInterpreter(tree ast.Node) *Interpreter {
 	return &Interpreter{
-		parser:       p,
+		Tree:         tree,
 		GLOBAL_SCOPE: make(map[string]Object),
 	}
 }
@@ -284,16 +283,11 @@ func (i *Interpreter) visitType(node *ast.Type) (Object, error) {
 }
 
 func (i *Interpreter) Interpret() error {
-	tree, err := i.parser.Parse()
-	if err != nil {
-		return err
-	}
-
-	if tree == nil {
+	if i.Tree == nil {
 		return nil
 	}
 
-	if _, err := i.visit(tree); err != nil {
+	if _, err := i.visit(i.Tree); err != nil {
 		return err
 	}
 

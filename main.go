@@ -8,7 +8,13 @@ import (
 	"github.com/lucasch37/spi-go/interpreter"
 	"github.com/lucasch37/spi-go/lexer"
 	"github.com/lucasch37/spi-go/parser"
+	"github.com/lucasch37/spi-go/semantic"
 )
+
+func fatal(err error) {
+	fmt.Fprintln(os.Stderr, err)
+	os.Exit(1)
+}
 
 func main() {
 	if len(os.Args) < 2 {
@@ -18,21 +24,28 @@ func main() {
 
 	data, err := os.ReadFile(os.Args[1])
 	if err != nil {
-		panic(err)
+		fatal(err)
 	}
 
 	lexer := lexer.NewLexer(strings.TrimSpace(string(data)))
 	parser, err := parser.NewParser(lexer)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		fatal(err)
 	}
 
-	interpreter := interpreter.NewInterpreter(parser)
+	tree, err := parser.Parse()
+	if err != nil {
+		fatal(err)
+	}
 
+	symTabBuilder := semantic.NewSymbolTableBuilder()
+	if err := symTabBuilder.Visit(tree); err != nil {
+		fatal(err)
+	}
+
+	interpreter := interpreter.NewInterpreter(tree)
 	if err := interpreter.Interpret(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		fatal(err)
 	}
 
 	fmt.Println(interpreter.GLOBAL_SCOPE)

@@ -17,6 +17,7 @@ func NewParser(lexer *lexer.Lexer) (*Parser, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return &Parser{
 		lexer:        lexer,
 		currentToken: token,
@@ -153,6 +154,7 @@ func (p *Parser) compoundStatement() (*ast.Compound, error) {
 	if err := p.eat(lexer.BEGIN); err != nil {
 		return nil, err
 	}
+
 	nodes, err := p.statementList()
 	if err != nil {
 		return nil, err
@@ -398,6 +400,7 @@ func (p *Parser) Parse() (ast.Node, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	if p.currentToken.Type != lexer.EOF {
 		return nil, p.error()
 	}
