@@ -124,7 +124,7 @@ func (l *Lexer) id() Token {
 		l.advance()
 	}
 
-	if token, exists := reservedKeywords[result]; exists {
+	if token, exists := reservedKeywords[strings.ToUpper(result)]; exists {
 		return token
 	}
 

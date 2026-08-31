@@ -68,7 +68,7 @@ func (st *SymbolTable) String() string {
 	return fmt.Sprintf("Symbols: %v", st.Symbols)
 }
 
-func (st *SymbolTable) Define(symbol Symbol) {
+func (st *SymbolTable) Insert(symbol Symbol) {
 	// fmt.Printf("Define: %s\n", symbol.Name())
 	st.Symbols[symbol.Name()] = symbol
 }
@@ -162,7 +162,12 @@ func (stb *SymbolTableBuilder) VisitVarDecl(node *ast.VarDecl) error {
 	typeSymbol := stb.SymbolTable.Lookup(typeName)
 	varName := node.VarNode.Value
 	varSymbol := NewVarSymbol(varName, typeSymbol)
-	stb.SymbolTable.Define(varSymbol)
+
+	if stb.SymbolTable.Lookup(varName) != nil {
+		return fmt.Errorf("Duplicate identifier: %q", varName)
+	}
+
+	stb.SymbolTable.Insert(varSymbol)
 
 	return nil
 }

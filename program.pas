@@ -1,23 +1,24 @@
-PROGRAM Part12;
-VAR
-   a : INTEGER;
+program Part12;
+var
+   a : integer;
+   a : real;
 
-PROCEDURE P1;
-VAR
-   a : REAL;
-   k : INTEGER;
+procedure P1;
+var
+   a : real;
+   k : integer;
 
-   PROCEDURE P2;
-   VAR
-      a, z : INTEGER;
-   BEGIN {P2}
+   procedure P2;
+   var
+      a, z : integer;
+   begin {P2}
       z := 777;
-   END;  {P2}
+   end;  {P2}
 
-BEGIN {P1}
+begin {P1}
 
-END;  {P1}
+end;  {P1}
 
-BEGIN {Part12}
+begin {Part12}
    a := 10;
-END.  {Part12}
+end.  {Part12}
