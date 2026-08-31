@@ -148,6 +148,8 @@ func (stb *SymbolTableBuilder) Visit(node ast.Node) error {
 	case *ast.Var:
 		return stb.VisitVar(node)
 
+	case *ast.ProcedureDecl:
+
 	default:
 		return fmt.Errorf("no visit method for %T", node)
 	}

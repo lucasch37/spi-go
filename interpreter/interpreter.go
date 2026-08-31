@@ -93,6 +93,9 @@ func (i *Interpreter) visit(node ast.Node) (Object, error) {
 	case *ast.Type:
 		return i.visitType(node)
 
+	case *ast.ProcedureDecl:
+		return i.visitProcedureDecl(node)
+
 	default:
 		return nil, fmt.Errorf("no visit method for %T", node)
 	}
@@ -279,6 +282,10 @@ func (i *Interpreter) visitVarDecl(node *ast.VarDecl) (Object, error) {
 }
 
 func (i *Interpreter) visitType(node *ast.Type) (Object, error) {
+	return nil, nil
+}
+
+func (i *Interpreter) visitProcedureDecl(node *ast.ProcedureDecl) (Object, error) {
 	return nil, nil
 }
 

@@ -96,6 +96,34 @@ func (p *Parser) declarations() ([]ast.Node, error) {
 		}
 	}
 
+	for p.currentToken.Type == lexer.PROCEDURE {
+		if err := p.eat(lexer.PROCEDURE); err != nil {
+			return nil, err
+		}
+
+		procName := p.currentToken.Value.(string)
+
+		if err := p.eat(lexer.ID); err != nil {
+			return nil, err
+		}
+
+		if err := p.eat(lexer.SEMI); err != nil {
+			return nil, err
+		}
+
+		blockNode, err := p.block()
+		if err != nil {
+			return nil, err
+		}
+
+		procDecl := ast.NewProcedureDecl(procName, blockNode)
+		declarations = append(declarations, procDecl)
+
+		if err := p.eat(lexer.SEMI); err != nil {
+			return nil, err
+		}
+	}
+
 	return declarations, nil
 }
 
@@ -112,6 +140,7 @@ func (p *Parser) variableDeclaration() ([]*ast.VarDecl, error) {
 		if err := p.eat(lexer.COMMA); err != nil {
 			return nil, err
 		}
+
 		varNodes = append(varNodes, ast.NewVar(p.currentToken))
 		if err := p.eat(lexer.ID); err != nil {
 			return nil, err

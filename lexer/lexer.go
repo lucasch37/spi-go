@@ -7,13 +7,14 @@ import (
 )
 
 var reservedKeywords = map[string]Token{
-	"BEGIN":   {Type: BEGIN, Value: "BEGIN"},
-	"END":     {Type: END, Value: "END"},
-	"PROGRAM": {Type: PROGRAM, Value: "PROGRAM"},
-	"DIV":     {Type: INTEGER_DIV, Value: "DIV"},
-	"INTEGER": {Type: INTEGER, Value: "INTEGER"},
-	"VAR":     {Type: VAR, Value: "VAR"},
-	"REAL":    {Type: REAL, Value: "REAL"},
+	"BEGIN":     {Type: BEGIN, Value: "BEGIN"},
+	"END":       {Type: END, Value: "END"},
+	"PROGRAM":   {Type: PROGRAM, Value: "PROGRAM"},
+	"DIV":       {Type: INTEGER_DIV, Value: "DIV"},
+	"INTEGER":   {Type: INTEGER, Value: "INTEGER"},
+	"VAR":       {Type: VAR, Value: "VAR"},
+	"REAL":      {Type: REAL, Value: "REAL"},
+	"PROCEDURE": {Type: PROCEDURE, Value: "PROCEDURE"},
 }
 
 type Lexer struct {
@@ -31,7 +32,7 @@ func NewLexer(text string) *Lexer {
 }
 
 func (l *Lexer) error() error {
-	return fmt.Errorf("invalid character")
+	return fmt.Errorf("Invalid Character")
 }
 
 func (l *Lexer) advance() {

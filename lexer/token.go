@@ -27,6 +27,7 @@ const (
 	COLON
 	COMMA
 	EOF
+	PROCEDURE
 )
 
 var tokenTypeNames = [...]string{
@@ -52,6 +53,7 @@ var tokenTypeNames = [...]string{
 	"COLON",
 	"COMMA",
 	"EOF",
+	"PROCEDURE",
 }
 
 func (t TokenType) String() string {

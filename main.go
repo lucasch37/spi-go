@@ -48,5 +48,6 @@ func main() {
 		fatal(err)
 	}
 
+	fmt.Println(symTabBuilder.SymbolTable.Symbols)
 	fmt.Println(interpreter.GLOBAL_SCOPE)
 }

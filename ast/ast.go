@@ -224,3 +224,16 @@ func NewRealLit(token lexer.Token) *RealLit {
 		Value:    token.Value.(float64),
 	}
 }
+
+type ProcedureDecl struct {
+	NodeType
+	ProcName string
+	Block    *Block
+}
+
+func NewProcedureDecl(procName string, block *Block) *ProcedureDecl {
+	return &ProcedureDecl{
+		ProcName: procName,
+		Block:    block,
+	}
+}
