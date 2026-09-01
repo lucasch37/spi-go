@@ -4,12 +4,14 @@ import (
 	"fmt"
 
 	"github.com/lucasch37/spi-go/ast"
+	"github.com/lucasch37/spi-go/errors"
 	"github.com/lucasch37/spi-go/lexer"
+	"github.com/lucasch37/spi-go/tokens"
 )
 
 type Parser struct {
 	lexer        *lexer.Lexer
-	currentToken lexer.Token
+	currentToken tokens.Token
 }
 
 func NewParser(lexer *lexer.Lexer) (*Parser, error) {
@@ -24,12 +26,12 @@ func NewParser(lexer *lexer.Lexer) (*Parser, error) {
 	}, nil
 }
 
-func (p *Parser) error() error {
-	return fmt.Errorf("Invalid syntax")
+func (p *Parser) error(code errors.ErrorCode) error {
+	return errors.NewSyntaxError(code, p.currentToken, fmt.Sprintf("%s -> %s", code.String(), p.currentToken.String()))
 }
 
 func (p *Parser) program() (ast.Node, error) {
-	if err := p.eat(lexer.PROGRAM); err != nil {
+	if err := p.eat(tokens.PROGRAM); err != nil {
 		return nil, err
 	}
 
@@ -40,7 +42,7 @@ func (p *Parser) program() (ast.Node, error) {
 
 	progName := varNode.Value
 
-	if err := p.eat(lexer.SEMI); err != nil {
+	if err := p.eat(tokens.SEMI); err != nil {
 		return nil, err
 	}
 
@@ -51,7 +53,7 @@ func (p *Parser) program() (ast.Node, error) {
 
 	programNode := ast.NewProgram(progName, blockNode)
 
-	if err := p.eat(lexer.DOT); err != nil {
+	if err := p.eat(tokens.DOT); err != nil {
 		return nil, err
 	}
 
@@ -75,12 +77,12 @@ func (p *Parser) block() (*ast.Block, error) {
 
 func (p *Parser) declarations() ([]ast.Node, error) {
 	var declarations []ast.Node
-	for p.currentToken.Type == lexer.VAR {
-		if err := p.eat(lexer.VAR); err != nil {
+	for p.currentToken.Type == tokens.VAR {
+		if err := p.eat(tokens.VAR); err != nil {
 			return nil, err
 		}
 
-		for p.currentToken.Type == lexer.ID {
+		for p.currentToken.Type == tokens.ID {
 			varDecls, err := p.variableDeclaration()
 			if err != nil {
 				return nil, err
@@ -90,27 +92,27 @@ func (p *Parser) declarations() ([]ast.Node, error) {
 				declarations = append(declarations, vd)
 			}
 
-			if err := p.eat(lexer.SEMI); err != nil {
+			if err := p.eat(tokens.SEMI); err != nil {
 				return nil, err
 			}
 		}
 	}
 
-	for p.currentToken.Type == lexer.PROCEDURE {
-		if err := p.eat(lexer.PROCEDURE); err != nil {
+	for p.currentToken.Type == tokens.PROCEDURE {
+		if err := p.eat(tokens.PROCEDURE); err != nil {
 			return nil, err
 		}
 
 		procName := p.currentToken.Value.(string)
 
-		if err := p.eat(lexer.ID); err != nil {
+		if err := p.eat(tokens.ID); err != nil {
 			return nil, err
 		}
 
 		var params []*ast.Param
 
-		if p.currentToken.Type == lexer.LPAREN {
-			if err := p.eat(lexer.LPAREN); err != nil {
+		if p.currentToken.Type == tokens.LPAREN {
+			if err := p.eat(tokens.LPAREN); err != nil {
 				return nil, err
 			}
 
@@ -121,12 +123,12 @@ func (p *Parser) declarations() ([]ast.Node, error) {
 
 			params = append(params, paramNodes...)
 
-			if err := p.eat(lexer.RPAREN); err != nil {
+			if err := p.eat(tokens.RPAREN); err != nil {
 				return nil, err
 			}
 		}
 
-		if err := p.eat(lexer.SEMI); err != nil {
+		if err := p.eat(tokens.SEMI); err != nil {
 			return nil, err
 		}
 
@@ -138,7 +140,7 @@ func (p *Parser) declarations() ([]ast.Node, error) {
 		procDecl := ast.NewProcedureDecl(procName, blockNode, params)
 		declarations = append(declarations, procDecl)
 
-		if err := p.eat(lexer.SEMI); err != nil {
+		if err := p.eat(tokens.SEMI); err != nil {
 			return nil, err
 		}
 	}
@@ -149,25 +151,25 @@ func (p *Parser) declarations() ([]ast.Node, error) {
 func (p *Parser) formalParamaters() ([]*ast.Param, error) {
 	var paramNodes []*ast.Param
 
-	paramTokens := []lexer.Token{p.currentToken}
+	paramTokens := []tokens.Token{p.currentToken}
 
-	if err := p.eat(lexer.ID); err != nil {
+	if err := p.eat(tokens.ID); err != nil {
 		return nil, err
 	}
 
-	for p.currentToken.Type == lexer.COMMA {
-		if err := p.eat(lexer.COMMA); err != nil {
+	for p.currentToken.Type == tokens.COMMA {
+		if err := p.eat(tokens.COMMA); err != nil {
 			return nil, err
 		}
 
 		paramTokens = append(paramTokens, p.currentToken)
 
-		if err := p.eat(lexer.ID); err != nil {
+		if err := p.eat(tokens.ID); err != nil {
 			return nil, err
 		}
 	}
 
-	if err := p.eat(lexer.COLON); err != nil {
+	if err := p.eat(tokens.COLON); err != nil {
 		return nil, err
 	}
 
@@ -185,7 +187,7 @@ func (p *Parser) formalParamaters() ([]*ast.Param, error) {
 }
 
 func (p *Parser) formalParameterList() ([]*ast.Param, error) {
-	if p.currentToken.Type != lexer.ID {
+	if p.currentToken.Type != tokens.ID {
 		return make([]*ast.Param, 0), nil
 	}
 
@@ -194,8 +196,8 @@ func (p *Parser) formalParameterList() ([]*ast.Param, error) {
 		return nil, err
 	}
 
-	for p.currentToken.Type == lexer.SEMI {
-		if err := p.eat(lexer.SEMI); err != nil {
+	for p.currentToken.Type == tokens.SEMI {
+		if err := p.eat(tokens.SEMI); err != nil {
 			return nil, err
 		}
 
@@ -215,22 +217,22 @@ func (p *Parser) variableDeclaration() ([]*ast.VarDecl, error) {
 		Token: p.currentToken,
 		Value: p.currentToken.Value.(string),
 	}}
-	if err := p.eat(lexer.ID); err != nil {
+	if err := p.eat(tokens.ID); err != nil {
 		return nil, err
 	}
 
-	for p.currentToken.Type == lexer.COMMA {
-		if err := p.eat(lexer.COMMA); err != nil {
+	for p.currentToken.Type == tokens.COMMA {
+		if err := p.eat(tokens.COMMA); err != nil {
 			return nil, err
 		}
 
 		varNodes = append(varNodes, ast.NewVar(p.currentToken))
-		if err := p.eat(lexer.ID); err != nil {
+		if err := p.eat(tokens.ID); err != nil {
 			return nil, err
 		}
 	}
 
-	if err := p.eat(lexer.COLON); err != nil {
+	if err := p.eat(tokens.COLON); err != nil {
 		return nil, err
 	}
 
@@ -249,12 +251,12 @@ func (p *Parser) variableDeclaration() ([]*ast.VarDecl, error) {
 
 func (p *Parser) typeSpec() (*ast.Type, error) {
 	token := p.currentToken
-	if p.currentToken.Type == lexer.INTEGER {
-		if err := p.eat(lexer.INTEGER); err != nil {
+	if p.currentToken.Type == tokens.INTEGER {
+		if err := p.eat(tokens.INTEGER); err != nil {
 			return nil, err
 		}
 	} else {
-		if err := p.eat(lexer.REAL); err != nil {
+		if err := p.eat(tokens.REAL); err != nil {
 			return nil, err
 		}
 	}
@@ -263,7 +265,7 @@ func (p *Parser) typeSpec() (*ast.Type, error) {
 }
 
 func (p *Parser) compoundStatement() (*ast.Compound, error) {
-	if err := p.eat(lexer.BEGIN); err != nil {
+	if err := p.eat(tokens.BEGIN); err != nil {
 		return nil, err
 	}
 
@@ -272,7 +274,7 @@ func (p *Parser) compoundStatement() (*ast.Compound, error) {
 		return nil, err
 	}
 
-	if err := p.eat(lexer.END); err != nil {
+	if err := p.eat(tokens.END); err != nil {
 		return nil, err
 	}
 
@@ -290,8 +292,8 @@ func (p *Parser) statementList() ([]ast.Node, error) {
 		node,
 	}
 
-	for p.currentToken.Type == lexer.SEMI {
-		if err := p.eat(lexer.SEMI); err != nil {
+	for p.currentToken.Type == tokens.SEMI {
+		if err := p.eat(tokens.SEMI); err != nil {
 			return nil, err
 		}
 
@@ -302,8 +304,8 @@ func (p *Parser) statementList() ([]ast.Node, error) {
 		results = append(results, node)
 	}
 
-	if p.currentToken.Type == lexer.ID {
-		p.error()
+	if p.currentToken.Type == tokens.ID {
+		p.error(errors.ExpectedAssign)
 	}
 
 	return results, nil
@@ -311,9 +313,9 @@ func (p *Parser) statementList() ([]ast.Node, error) {
 
 func (p *Parser) statement() (ast.Node, error) {
 	switch p.currentToken.Type {
-	case lexer.BEGIN:
+	case tokens.BEGIN:
 		return p.compoundStatement()
-	case lexer.ID:
+	case tokens.ID:
 		return p.assignmentStatement()
 	default:
 		return p.empty()
@@ -328,7 +330,7 @@ func (p *Parser) assignmentStatement() (*ast.Assign, error) {
 
 	token := p.currentToken
 
-	if err := p.eat(lexer.ASSIGN); err != nil {
+	if err := p.eat(tokens.ASSIGN); err != nil {
 		return nil, err
 	}
 
@@ -343,13 +345,9 @@ func (p *Parser) assignmentStatement() (*ast.Assign, error) {
 }
 
 func (p *Parser) variable() (*ast.Var, error) {
-	if p.currentToken.Type != lexer.ID {
-		return nil, p.error()
-	}
-
 	node := ast.NewVar(p.currentToken)
 
-	if err := p.eat(lexer.ID); err != nil {
+	if err := p.eat(tokens.ID); err != nil {
 		return nil, err
 	}
 	return node, nil
@@ -359,9 +357,9 @@ func (p *Parser) empty() (*ast.NoOp, error) {
 	return ast.NewNoOp(), nil
 }
 
-func (p *Parser) eat(tokenType lexer.TokenType) error {
+func (p *Parser) eat(tokenType tokens.TokenType) error {
 	if p.currentToken.Type != tokenType {
-		return p.error()
+		return p.error(errors.UnexpectedToken)
 	}
 
 	token, err := p.lexer.GetNextToken()
@@ -377,8 +375,8 @@ func (p *Parser) factor() (ast.Node, error) {
 	token := p.currentToken
 
 	switch token.Type {
-	case lexer.PLUS:
-		if err := p.eat(lexer.PLUS); err != nil {
+	case tokens.PLUS:
+		if err := p.eat(tokens.PLUS); err != nil {
 			return nil, err
 		}
 
@@ -391,8 +389,8 @@ func (p *Parser) factor() (ast.Node, error) {
 
 		return node, nil
 
-	case lexer.MINUS:
-		if err := p.eat(lexer.MINUS); err != nil {
+	case tokens.MINUS:
+		if err := p.eat(tokens.MINUS); err != nil {
 			return nil, err
 		}
 
@@ -404,22 +402,22 @@ func (p *Parser) factor() (ast.Node, error) {
 		node := ast.NewUnaryOp(token, expr)
 		return node, nil
 
-	case lexer.INTEGER_CONST:
-		if err := p.eat(lexer.INTEGER_CONST); err != nil {
+	case tokens.INTEGER_CONST:
+		if err := p.eat(tokens.INTEGER_CONST); err != nil {
 			return nil, err
 		}
 
 		return ast.NewIntegerLit(token), nil
 
-	case lexer.REAL_CONST:
-		if err := p.eat(lexer.REAL_CONST); err != nil {
+	case tokens.REAL_CONST:
+		if err := p.eat(tokens.REAL_CONST); err != nil {
 			return nil, err
 		}
 
 		return ast.NewRealLit(token), nil
 
-	case lexer.LPAREN:
-		if err := p.eat(lexer.LPAREN); err != nil {
+	case tokens.LPAREN:
+		if err := p.eat(tokens.LPAREN); err != nil {
 			return nil, err
 		}
 
@@ -428,7 +426,7 @@ func (p *Parser) factor() (ast.Node, error) {
 			return nil, err
 		}
 
-		if err := p.eat(lexer.RPAREN); err != nil {
+		if err := p.eat(tokens.RPAREN); err != nil {
 			return nil, err
 		}
 		return node, nil
@@ -444,22 +442,22 @@ func (p *Parser) term() (ast.Node, error) {
 		return nil, err
 	}
 
-	for p.currentToken.Type == lexer.MUL ||
-		p.currentToken.Type == lexer.INTEGER_DIV || p.currentToken.Type == lexer.FLOAT_DIV {
+	for p.currentToken.Type == tokens.MUL ||
+		p.currentToken.Type == tokens.INTEGER_DIV || p.currentToken.Type == tokens.FLOAT_DIV {
 
 		token := p.currentToken
 
 		switch token.Type {
-		case lexer.MUL:
-			if err := p.eat(lexer.MUL); err != nil {
+		case tokens.MUL:
+			if err := p.eat(tokens.MUL); err != nil {
 				return nil, err
 			}
-		case lexer.INTEGER_DIV:
-			if err := p.eat(lexer.INTEGER_DIV); err != nil {
+		case tokens.INTEGER_DIV:
+			if err := p.eat(tokens.INTEGER_DIV); err != nil {
 				return nil, err
 			}
-		case lexer.FLOAT_DIV:
-			if err := p.eat(lexer.FLOAT_DIV); err != nil {
+		case tokens.FLOAT_DIV:
+			if err := p.eat(tokens.FLOAT_DIV); err != nil {
 				return nil, err
 			}
 		}
@@ -481,17 +479,17 @@ func (p *Parser) expr() (ast.Node, error) {
 		return nil, err
 	}
 
-	for p.currentToken.Type == lexer.PLUS ||
-		p.currentToken.Type == lexer.MINUS {
+	for p.currentToken.Type == tokens.PLUS ||
+		p.currentToken.Type == tokens.MINUS {
 
 		token := p.currentToken
 
-		if token.Type == lexer.PLUS {
-			if err := p.eat(lexer.PLUS); err != nil {
+		if token.Type == tokens.PLUS {
+			if err := p.eat(tokens.PLUS); err != nil {
 				return nil, err
 			}
 		} else {
-			if err := p.eat(lexer.MINUS); err != nil {
+			if err := p.eat(tokens.MINUS); err != nil {
 				return nil, err
 			}
 		}
@@ -513,8 +511,8 @@ func (p *Parser) Parse() (ast.Node, error) {
 		return nil, err
 	}
 
-	if p.currentToken.Type != lexer.EOF {
-		return nil, p.error()
+	if p.currentToken.Type != tokens.EOF {
+		return nil, p.error(errors.UnexpectedToken)
 	}
 
 	return tree, nil

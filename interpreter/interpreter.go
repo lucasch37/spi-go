@@ -4,7 +4,8 @@ import (
 	"fmt"
 
 	"github.com/lucasch37/spi-go/ast"
-	"github.com/lucasch37/spi-go/lexer"
+	"github.com/lucasch37/spi-go/errors"
+	"github.com/lucasch37/spi-go/tokens"
 )
 
 type Interpreter struct {
@@ -17,6 +18,10 @@ func NewInterpreter(tree ast.Node) *Interpreter {
 		Tree:         tree,
 		GLOBAL_SCOPE: make(map[string]Object),
 	}
+}
+
+func (i *Interpreter) error(code errors.ErrorCode, token tokens.Token) error {
+	return errors.NewRuntimeError(code, token, fmt.Sprintf("%s -> %s", code.String(), token.String()))
 }
 
 func (i *Interpreter) visit(node ast.Node) (Object, error) {
@@ -89,18 +94,18 @@ func (i *Interpreter) visitBinOp(node *ast.BinOp) (Object, error) {
 		}
 
 		switch node.Op.Type {
-		case lexer.PLUS:
+		case tokens.PLUS:
 			return Real{Value: leftValue + rightValue}, nil
 
-		case lexer.MINUS:
+		case tokens.MINUS:
 			return Real{Value: leftValue - rightValue}, nil
 
-		case lexer.MUL:
+		case tokens.MUL:
 			return Real{Value: leftValue * rightValue}, nil
 
-		case lexer.FLOAT_DIV:
+		case tokens.FLOAT_DIV:
 			if rightValue == 0 {
-				return nil, fmt.Errorf("Division by zero")
+				return nil, i.error(errors.DivideByZero, node.Token)
 			}
 			return Real{Value: leftValue / rightValue}, nil
 
@@ -114,24 +119,24 @@ func (i *Interpreter) visitBinOp(node *ast.BinOp) (Object, error) {
 	rightValue := right.(Integer).Value
 
 	switch node.Op.Type {
-	case lexer.PLUS:
+	case tokens.PLUS:
 		return Integer{Value: leftValue + rightValue}, nil
 
-	case lexer.MINUS:
+	case tokens.MINUS:
 		return Integer{Value: leftValue - rightValue}, nil
 
-	case lexer.MUL:
+	case tokens.MUL:
 		return Integer{Value: leftValue * rightValue}, nil
 
-	case lexer.INTEGER_DIV:
+	case tokens.INTEGER_DIV:
 		if rightValue == 0 {
-			return nil, fmt.Errorf("Division by zero")
+			return nil, i.error(errors.DivideByZero, node.Token)
 		}
 		return Integer{Value: leftValue / rightValue}, nil
 
-	case lexer.FLOAT_DIV:
+	case tokens.FLOAT_DIV:
 		if rightValue == 0 {
-			return nil, fmt.Errorf("Division by zero")
+			return nil, i.error(errors.DivideByZero, node.Token)
 		}
 
 		// Use floating-point division for DIV.
@@ -170,10 +175,10 @@ func (i *Interpreter) visitUnaryOp(node *ast.UnaryOp) (Object, error) {
 	}
 
 	switch node.Op.Type {
-	case lexer.PLUS:
+	case tokens.PLUS:
 		return value, nil
 
-	case lexer.MINUS:
+	case tokens.MINUS:
 		switch value := value.(type) {
 		case Integer:
 			return Integer{Value: -value.Value}, nil
@@ -219,10 +224,7 @@ func (i *Interpreter) visitAssign(node *ast.Assign) (Object, error) {
 func (i *Interpreter) visitVar(node *ast.Var) (Object, error) {
 	varName := node.Value
 
-	value, exists := i.GLOBAL_SCOPE[varName]
-	if !exists {
-		return nil, fmt.Errorf("Variable not found: %s", varName)
-	}
+	value := i.GLOBAL_SCOPE[varName]
 
 	return value, nil
 }

@@ -1,7 +1,7 @@
 package ast
 
 import (
-	"github.com/lucasch37/spi-go/lexer"
+	"github.com/lucasch37/spi-go/tokens"
 )
 
 type Node interface {
@@ -56,12 +56,12 @@ func (nt NodeType) String() string {
 type BinOp struct {
 	NodeType
 	Left  Node
-	Token lexer.Token
-	Op    lexer.Token
+	Token tokens.Token
+	Op    tokens.Token
 	Right Node
 }
 
-func NewBinOp(left Node, token lexer.Token, right Node) *BinOp {
+func NewBinOp(left Node, token tokens.Token, right Node) *BinOp {
 	return &BinOp{
 		NodeType: BinOpNode,
 		Left:     left,
@@ -73,12 +73,12 @@ func NewBinOp(left Node, token lexer.Token, right Node) *BinOp {
 
 type UnaryOp struct {
 	NodeType
-	Token lexer.Token
-	Op    lexer.Token
+	Token tokens.Token
+	Op    tokens.Token
 	Expr  Node
 }
 
-func NewUnaryOp(token lexer.Token, expr Node) *UnaryOp {
+func NewUnaryOp(token tokens.Token, expr Node) *UnaryOp {
 	return &UnaryOp{
 		NodeType: UnaryOpNode,
 		Token:    token,
@@ -102,12 +102,12 @@ func NewCompound(children []Node) *Compound {
 type Assign struct {
 	NodeType
 	Left  *Var
-	Token lexer.Token
-	Op    lexer.Token
+	Token tokens.Token
+	Op    tokens.Token
 	Right Node
 }
 
-func NewAssign(left *Var, token lexer.Token, right Node) *Assign {
+func NewAssign(left *Var, token tokens.Token, right Node) *Assign {
 	return &Assign{
 		NodeType: AssignNode,
 		Left:     left,
@@ -119,11 +119,11 @@ func NewAssign(left *Var, token lexer.Token, right Node) *Assign {
 
 type Var struct {
 	NodeType
-	Token lexer.Token
+	Token tokens.Token
 	Value string
 }
 
-func NewVar(token lexer.Token) *Var {
+func NewVar(token tokens.Token) *Var {
 	return &Var{
 		NodeType: VarNode,
 		Token:    token,
@@ -185,11 +185,11 @@ func NewVarDecl(varNode *Var, typeNode *Type) *VarDecl {
 
 type Type struct {
 	NodeType
-	Token lexer.Token
+	Token tokens.Token
 	Value string
 }
 
-func NewType(token lexer.Token) *Type {
+func NewType(token tokens.Token) *Type {
 	return &Type{
 		NodeType: TypeNode,
 		Token:    token,
@@ -199,11 +199,11 @@ func NewType(token lexer.Token) *Type {
 
 type IntegerLit struct {
 	NodeType
-	Token lexer.Token
+	Token tokens.Token
 	Value int
 }
 
-func NewIntegerLit(token lexer.Token) *IntegerLit {
+func NewIntegerLit(token tokens.Token) *IntegerLit {
 	return &IntegerLit{
 		NodeType: IntegerLitNode,
 		Token:    token,
@@ -213,11 +213,11 @@ func NewIntegerLit(token lexer.Token) *IntegerLit {
 
 type RealLit struct {
 	NodeType
-	Token lexer.Token
+	Token tokens.Token
 	Value float64
 }
 
-func NewRealLit(token lexer.Token) *RealLit {
+func NewRealLit(token tokens.Token) *RealLit {
 	return &RealLit{
 		NodeType: RealLitNode,
 		Token:    token,
