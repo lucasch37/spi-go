@@ -86,14 +86,16 @@ type SymbolTable struct {
 	ScopeName      string
 	ScopeLevel     int
 	EnclosingScope *SymbolTable
+	ShouldLogScope bool
 }
 
-func NewSymbolTable(scopeName string, scopeLevel int, enclosingScope *SymbolTable) *SymbolTable {
+func NewSymbolTable(scopeName string, scopeLevel int, enclosingScope *SymbolTable, shouldLogScope bool) *SymbolTable {
 	st := &SymbolTable{
 		Symbols:        make(map[string]Symbol),
 		ScopeName:      scopeName,
 		ScopeLevel:     scopeLevel,
 		EnclosingScope: enclosingScope,
+		ShouldLogScope: shouldLogScope,
 	}
 
 	return st
@@ -139,13 +141,19 @@ func (st *SymbolTable) String() string {
 	return strings.Join(lines, "\n")
 }
 
+func (st *SymbolTable) log(msg string) {
+	if st.ShouldLogScope {
+		fmt.Println(msg)
+	}
+}
+
 func (st *SymbolTable) Insert(symbol Symbol) {
-	fmt.Printf("Insert: %s\n", symbol.Name())
+	st.log(fmt.Sprintf("Insert: %s", symbol.Name()))
 	st.Symbols[symbol.Name()] = symbol
 }
 
 func (st *SymbolTable) Lookup(name string, currentScopeOnly bool) Symbol {
-	fmt.Printf("Lookup: %s (scope: %s)\n", name, st.ScopeName)
+	st.log(fmt.Sprintf("Lookup: %s (scope: %s)", name, st.ScopeName))
 	symbol, exists := st.Symbols[name]
 	if exists {
 		return symbol

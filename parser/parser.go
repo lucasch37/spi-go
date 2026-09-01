@@ -99,53 +99,63 @@ func (p *Parser) declarations() ([]ast.Node, error) {
 	}
 
 	for p.currentToken.Type == tokens.PROCEDURE {
-		if err := p.eat(tokens.PROCEDURE); err != nil {
-			return nil, err
-		}
-
-		procName := p.currentToken.Value.(string)
-
-		if err := p.eat(tokens.ID); err != nil {
-			return nil, err
-		}
-
-		var params []*ast.Param
-
-		if p.currentToken.Type == tokens.LPAREN {
-			if err := p.eat(tokens.LPAREN); err != nil {
-				return nil, err
-			}
-
-			paramNodes, err := p.formalParameterList()
-			if err != nil {
-				return nil, err
-			}
-
-			params = append(params, paramNodes...)
-
-			if err := p.eat(tokens.RPAREN); err != nil {
-				return nil, err
-			}
-		}
-
-		if err := p.eat(tokens.SEMI); err != nil {
-			return nil, err
-		}
-
-		blockNode, err := p.block()
+		procDecl, err := p.ProcedureDeclaraton()
 		if err != nil {
 			return nil, err
 		}
 
-		procDecl := ast.NewProcedureDecl(procName, blockNode, params)
 		declarations = append(declarations, procDecl)
+	}
 
-		if err := p.eat(tokens.SEMI); err != nil {
+	return declarations, nil
+}
+
+func (p *Parser) ProcedureDeclaraton() (*ast.ProcedureDecl, error) {
+	if err := p.eat(tokens.PROCEDURE); err != nil {
+		return nil, err
+	}
+
+	procName := p.currentToken.Value.(string)
+
+	if err := p.eat(tokens.ID); err != nil {
+		return nil, err
+	}
+
+	var params []*ast.Param
+
+	if p.currentToken.Type == tokens.LPAREN {
+		if err := p.eat(tokens.LPAREN); err != nil {
+			return nil, err
+		}
+
+		paramNodes, err := p.formalParameterList()
+		if err != nil {
+			return nil, err
+		}
+
+		params = append(params, paramNodes...)
+
+		if err := p.eat(tokens.RPAREN); err != nil {
 			return nil, err
 		}
 	}
 
-	return declarations, nil
+	if err := p.eat(tokens.SEMI); err != nil {
+		return nil, err
+	}
+
+	blockNode, err := p.block()
+	if err != nil {
+		return nil, err
+	}
+
+	procDecl := ast.NewProcedureDecl(procName, blockNode, params)
+
+	if err := p.eat(tokens.SEMI); err != nil {
+		return nil, err
+	}
+
+	return procDecl, nil
 }
 
 func (p *Parser) formalParamaters() ([]*ast.Param, error) {

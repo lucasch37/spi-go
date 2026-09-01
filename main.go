@@ -17,12 +17,9 @@ func fatal(err error) {
 }
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Fprintf(os.Stderr, "usage: %s <source.pas>\n", os.Args[0])
-		os.Exit(1)
-	}
+	config := parseArgs()
 
-	data, err := os.ReadFile(os.Args[1])
+	data, err := os.ReadFile(config.InputFile)
 	if err != nil {
 		fatal(err)
 	}
@@ -38,7 +35,7 @@ func main() {
 		fatal(err)
 	}
 
-	symTabBuilder := semantic.NewSemanticAnalyzer()
+	symTabBuilder := semantic.NewSemanticAnalyzer(config.ShouldLogScope)
 	if err := symTabBuilder.Visit(tree); err != nil {
 		fatal(err)
 	}

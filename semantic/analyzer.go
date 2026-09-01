@@ -9,12 +9,14 @@ import (
 )
 
 type SemanticAnalyzer struct {
-	CurrentScope *SymbolTable
+	CurrentScope   *SymbolTable
+	ShouldLogScope bool
 }
 
-func NewSemanticAnalyzer() *SemanticAnalyzer {
+func NewSemanticAnalyzer(shouldLogScope bool) *SemanticAnalyzer {
 	sa := &SemanticAnalyzer{
-		CurrentScope: nil,
+		CurrentScope:   nil,
+		ShouldLogScope: shouldLogScope,
 	}
 
 	return sa
@@ -22,6 +24,12 @@ func NewSemanticAnalyzer() *SemanticAnalyzer {
 
 func (sa *SemanticAnalyzer) error(code errors.ErrorCode, token tokens.Token) error {
 	return errors.NewSemanticError(code, token, fmt.Sprintf("%s -> %s", code.String(), token.String()))
+}
+
+func (sa *SemanticAnalyzer) log(msg string) {
+	if sa.ShouldLogScope {
+		fmt.Println(msg)
+	}
 }
 
 func (sa *SemanticAnalyzer) Visit(node ast.Node) error {
@@ -85,9 +93,9 @@ func (sa *SemanticAnalyzer) Visit(node ast.Node) error {
 }
 
 func (sa *SemanticAnalyzer) VisitProgram(node *ast.Program) error {
-	fmt.Println("ENTER scope: global")
+	sa.log("ENTER scope: global")
 
-	globalScope := NewSymbolTable("global", 1, sa.CurrentScope)
+	globalScope := NewSymbolTable("global", 1, sa.CurrentScope, sa.ShouldLogScope)
 	globalScope.InitBuiltins()
 	sa.CurrentScope = globalScope
 
@@ -95,10 +103,10 @@ func (sa *SemanticAnalyzer) VisitProgram(node *ast.Program) error {
 		return err
 	}
 
-	fmt.Println(globalScope.String())
+	sa.log(globalScope.String())
 
 	sa.CurrentScope = sa.CurrentScope.EnclosingScope
-	fmt.Println("LEAVE scope: global")
+	sa.log("LEAVE scope: global")
 
 	return nil
 }
@@ -108,8 +116,8 @@ func (sa *SemanticAnalyzer) VisitProcedureDecl(node *ast.ProcedureDecl) error {
 	procSymbol := NewProcedureSymbol(procName, make([]*VarSymbol, 0))
 	sa.CurrentScope.Insert(procSymbol)
 
-	fmt.Println("ENTER scope: ", procName)
-	procScope := NewSymbolTable(procName, sa.CurrentScope.ScopeLevel+1, sa.CurrentScope)
+	sa.log(fmt.Sprintf("ENTER scope: %s", procName))
+	procScope := NewSymbolTable(procName, sa.CurrentScope.ScopeLevel+1, sa.CurrentScope, sa.ShouldLogScope)
 	sa.CurrentScope = procScope
 
 	for _, param := range node.Params {
@@ -125,10 +133,10 @@ func (sa *SemanticAnalyzer) VisitProcedureDecl(node *ast.ProcedureDecl) error {
 		return err
 	}
 
-	fmt.Println(procScope.String())
+	sa.log(procScope.String())
 
 	sa.CurrentScope = sa.CurrentScope.EnclosingScope
-	fmt.Println("LEAVE scope: ", procName)
+	sa.log(fmt.Sprintf("LEAVE scope: %s", procName))
 
 	return nil
 }
