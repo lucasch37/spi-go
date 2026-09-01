@@ -2,13 +2,13 @@ package semantic
 
 import (
 	"fmt"
-
-	"github.com/lucasch37/spi-go/ast"
+	"strings"
 )
 
 type Symbol interface {
 	Name() string
 	Type() string
+	String() string
 }
 
 type BuiltinTypeSymbol struct {
@@ -19,6 +19,10 @@ func NewBuiltinTypeSymbol(name string) *BuiltinTypeSymbol {
 	return &BuiltinTypeSymbol{
 		name: name,
 	}
+}
+
+func (b *BuiltinTypeSymbol) String() string {
+	return fmt.Sprintf("<BuiltInTypeSymbol(name='%s')>", b.name)
 }
 
 func (b *BuiltinTypeSymbol) Name() string {
@@ -41,6 +45,10 @@ func NewVarSymbol(name string, typ Symbol) *VarSymbol {
 	}
 }
 
+func (v *VarSymbol) String() string {
+	return fmt.Sprintf("<VarSymbol(name='%s', type='%s')>", v.name, v.typ.Name())
+}
+
 func (v *VarSymbol) Name() string {
 	return v.name
 }
@@ -49,144 +57,106 @@ func (v *VarSymbol) Type() string {
 	return v.typ.Name()
 }
 
-type SymbolTable struct {
-	Symbols map[string]Symbol
+type ProcedureSymbol struct {
+	name   string
+	params []*VarSymbol
 }
 
-func NewSymbolTable() *SymbolTable {
-	s := &SymbolTable{
-		Symbols: make(map[string]Symbol),
+func NewProcedureSymbol(name string, params []*VarSymbol) *ProcedureSymbol {
+	return &ProcedureSymbol{
+		name:   name,
+		params: params,
+	}
+}
+
+func (p *ProcedureSymbol) String() string {
+	return fmt.Sprintf("<ProcedureSymbol(name='%s', params='%v')>", p.name, p.params)
+}
+
+func (p *ProcedureSymbol) Name() string {
+	return p.name
+}
+
+func (p *ProcedureSymbol) Type() string {
+	return ""
+}
+
+type SymbolTable struct {
+	Symbols        map[string]Symbol
+	ScopeName      string
+	ScopeLevel     int
+	EnclosingScope *SymbolTable
+}
+
+func NewSymbolTable(scopeName string, scopeLevel int, enclosingScope *SymbolTable) *SymbolTable {
+	st := &SymbolTable{
+		Symbols:        make(map[string]Symbol),
+		ScopeName:      scopeName,
+		ScopeLevel:     scopeLevel,
+		EnclosingScope: enclosingScope,
 	}
 
-	s.Symbols["INTEGER"] = NewBuiltinTypeSymbol("INTEGER")
-	s.Symbols["REAL"] = NewBuiltinTypeSymbol("REAL")
+	return st
+}
 
-	return s
+func (st *SymbolTable) InitBuiltins() {
+	st.Insert(NewBuiltinTypeSymbol("INTEGER"))
+	st.Insert(NewBuiltinTypeSymbol("REAL"))
 }
 
 func (st *SymbolTable) String() string {
-	return fmt.Sprintf("Symbols: %v", st.Symbols)
+	h1 := "SYMBOL TABLE"
+
+	lines := []string{
+		"",
+		h1,
+		strings.Repeat("=", 20),
+	}
+
+	lines = append(lines,
+		fmt.Sprintf("%-15s: %s", "Scope name", st.ScopeName),
+		fmt.Sprintf("%-15s: %d", "Scope level", st.ScopeLevel),
+	)
+
+	if st.EnclosingScope != nil {
+		lines = append(lines, fmt.Sprintf("%-15s: %v", "Enclosing scope", st.EnclosingScope.ScopeName))
+	}
+
+	h2 := "\nSymbol Table Contents"
+	lines = append(lines,
+		h2,
+		strings.Repeat("-", len(h2)),
+	)
+
+	for key, value := range st.Symbols {
+		lines = append(lines,
+			fmt.Sprintf("%7s: %v", key, value.String()),
+		)
+	}
+
+	lines = append(lines, "")
+
+	return strings.Join(lines, "\n")
 }
 
 func (st *SymbolTable) Insert(symbol Symbol) {
-	// fmt.Printf("Define: %s\n", symbol.Name())
+	fmt.Printf("Insert: %s\n", symbol.Name())
 	st.Symbols[symbol.Name()] = symbol
 }
 
-func (st *SymbolTable) Lookup(name string) Symbol {
-	// fmt.Printf("Lookup: %s\n", name)
+func (st *SymbolTable) Lookup(name string, currentScopeOnly bool) Symbol {
+	fmt.Printf("Lookup: %s (scope: %s)\n", name, st.ScopeName)
 	symbol, exists := st.Symbols[name]
-	if !exists {
+	if exists {
+		return symbol
+	}
+
+	if currentScopeOnly {
 		return nil
 	}
 
-	return symbol
-}
-
-type SymbolTableBuilder struct {
-	SymbolTable *SymbolTable
-}
-
-func NewSymbolTableBuilder() *SymbolTableBuilder {
-	st := NewSymbolTable()
-	stb := &SymbolTableBuilder{
-		SymbolTable: st,
-	}
-
-	return stb
-}
-
-func (stb *SymbolTableBuilder) Visit(node ast.Node) error {
-	switch node := node.(type) {
-	case *ast.Program:
-		if err := stb.Visit(node.Block); err != nil {
-			return err
-		}
-
-	case *ast.Block:
-		for _, decl := range node.Declarations {
-			if err := stb.Visit(decl); err != nil {
-				return err
-			}
-		}
-		if err := stb.Visit(node.CompoundStatement); err != nil {
-			return err
-		}
-
-	case *ast.BinOp:
-		if err := stb.Visit(node.Left); err != nil {
-			return err
-		}
-
-		if err := stb.Visit(node.Right); err != nil {
-			return err
-		}
-
-	case *ast.IntegerLit:
-	case *ast.RealLit:
-
-	case *ast.UnaryOp:
-		if err := stb.Visit(node.Expr); err != nil {
-			return err
-		}
-
-	case *ast.Compound:
-		for _, node := range node.Children {
-			if err := stb.Visit(node); err != nil {
-				return err
-			}
-		}
-
-	case *ast.NoOp:
-
-	case *ast.VarDecl:
-		return stb.VisitVarDecl(node)
-
-	case *ast.Assign:
-		return stb.VisitAssign(node)
-
-	case *ast.Var:
-		return stb.VisitVar(node)
-
-	case *ast.ProcedureDecl:
-
-	default:
-		return fmt.Errorf("no visit method for %T", node)
-	}
-
-	return nil
-}
-
-func (stb *SymbolTableBuilder) VisitVarDecl(node *ast.VarDecl) error {
-	typeName := node.TypeNode.Value
-	typeSymbol := stb.SymbolTable.Lookup(typeName)
-	varName := node.VarNode.Value
-	varSymbol := NewVarSymbol(varName, typeSymbol)
-
-	if stb.SymbolTable.Lookup(varName) != nil {
-		return fmt.Errorf("Duplicate identifier: %q", varName)
-	}
-
-	stb.SymbolTable.Insert(varSymbol)
-
-	return nil
-}
-
-func (stb *SymbolTableBuilder) VisitAssign(node *ast.Assign) error {
-	varName := node.Left.Value
-	varSymbol := stb.SymbolTable.Lookup(varName)
-	if varSymbol == nil {
-		return fmt.Errorf("NameError: %q", varName)
-	}
-
-	return stb.Visit(node.Right)
-}
-
-func (stb *SymbolTableBuilder) VisitVar(node *ast.Var) error {
-	varName := node.Value
-	varSymbol := stb.SymbolTable.Lookup(varName)
-	if varSymbol == nil {
-		return fmt.Errorf("NameError: %q", varName)
+	if st.EnclosingScope != nil {
+		return st.EnclosingScope.Lookup(name, false)
 	}
 
 	return nil

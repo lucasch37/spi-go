@@ -38,7 +38,7 @@ func main() {
 		fatal(err)
 	}
 
-	symTabBuilder := semantic.NewSymbolTableBuilder()
+	symTabBuilder := semantic.NewSemanticAnalyzer()
 	if err := symTabBuilder.Visit(tree); err != nil {
 		fatal(err)
 	}
@@ -48,6 +48,7 @@ func main() {
 		fatal(err)
 	}
 
-	fmt.Println(symTabBuilder.SymbolTable.Symbols)
-	fmt.Println(interpreter.GLOBAL_SCOPE)
+	for key, value := range interpreter.GLOBAL_SCOPE {
+		fmt.Printf("%s = %s\n", key, value.String())
+	}
 }

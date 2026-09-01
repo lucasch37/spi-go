@@ -1,24 +1,32 @@
-program Part12;
-var
-   a : integer;
-   a : real;
+program Main;
+   var b, x, y : real;
+   var z : integer;
 
-procedure P1;
-var
-   a : real;
-   k : integer;
+   procedure AlphaA(a : integer);
+      var b : integer;
 
-   procedure P2;
-   var
-      a, z : integer;
-   begin {P2}
-      z := 777;
-   end;  {P2}
+      procedure Beta(c : integer);
+         var y : integer;
 
-begin {P1}
+         procedure Gamma(c : integer);
+            var x : integer;
+         begin { Gamma }
+            x := a + b + c + x + y + z;
+         end;  { Gamma }
 
-end;  {P1}
+      begin { Beta }
 
-begin {Part12}
-   a := 10;
-end.  {Part12}
+      end;  { Beta }
+
+   begin { AlphaA }
+
+   end;  { AlphaA }
+
+   procedure AlphaB(a : integer);
+      var c : real;
+   begin { AlphaB }
+      c := a + b;
+   end;  { AlphaB }
+
+begin { Main }
+end.  { Main }

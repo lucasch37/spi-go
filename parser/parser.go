@@ -75,7 +75,7 @@ func (p *Parser) block() (*ast.Block, error) {
 
 func (p *Parser) declarations() ([]ast.Node, error) {
 	var declarations []ast.Node
-	if p.currentToken.Type == lexer.VAR {
+	for p.currentToken.Type == lexer.VAR {
 		if err := p.eat(lexer.VAR); err != nil {
 			return nil, err
 		}
@@ -107,6 +107,25 @@ func (p *Parser) declarations() ([]ast.Node, error) {
 			return nil, err
 		}
 
+		var params []*ast.Param
+
+		if p.currentToken.Type == lexer.LPAREN {
+			if err := p.eat(lexer.LPAREN); err != nil {
+				return nil, err
+			}
+
+			paramNodes, err := p.formalParameterList()
+			if err != nil {
+				return nil, err
+			}
+
+			params = append(params, paramNodes...)
+
+			if err := p.eat(lexer.RPAREN); err != nil {
+				return nil, err
+			}
+		}
+
 		if err := p.eat(lexer.SEMI); err != nil {
 			return nil, err
 		}
@@ -116,7 +135,7 @@ func (p *Parser) declarations() ([]ast.Node, error) {
 			return nil, err
 		}
 
-		procDecl := ast.NewProcedureDecl(procName, blockNode)
+		procDecl := ast.NewProcedureDecl(procName, blockNode, params)
 		declarations = append(declarations, procDecl)
 
 		if err := p.eat(lexer.SEMI); err != nil {
@@ -125,6 +144,70 @@ func (p *Parser) declarations() ([]ast.Node, error) {
 	}
 
 	return declarations, nil
+}
+
+func (p *Parser) formalParamaters() ([]*ast.Param, error) {
+	var paramNodes []*ast.Param
+
+	paramTokens := []lexer.Token{p.currentToken}
+
+	if err := p.eat(lexer.ID); err != nil {
+		return nil, err
+	}
+
+	for p.currentToken.Type == lexer.COMMA {
+		if err := p.eat(lexer.COMMA); err != nil {
+			return nil, err
+		}
+
+		paramTokens = append(paramTokens, p.currentToken)
+
+		if err := p.eat(lexer.ID); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := p.eat(lexer.COLON); err != nil {
+		return nil, err
+	}
+
+	typeNode, err := p.typeSpec()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, paramToken := range paramTokens {
+		paramNode := ast.NewParam(ast.NewVar(paramToken), typeNode)
+		paramNodes = append(paramNodes, paramNode)
+	}
+
+	return paramNodes, nil
+}
+
+func (p *Parser) formalParameterList() ([]*ast.Param, error) {
+	if p.currentToken.Type != lexer.ID {
+		return make([]*ast.Param, 0), nil
+	}
+
+	paramNodes, err := p.formalParamaters()
+	if err != nil {
+		return nil, err
+	}
+
+	for p.currentToken.Type == lexer.SEMI {
+		if err := p.eat(lexer.SEMI); err != nil {
+			return nil, err
+		}
+
+		newParamNodes, err := p.formalParamaters()
+		if err != nil {
+			return nil, err
+		}
+
+		paramNodes = append(paramNodes, newParamNodes...)
+	}
+
+	return paramNodes, nil
 }
 
 func (p *Parser) variableDeclaration() ([]*ast.VarDecl, error) {

@@ -229,11 +229,26 @@ type ProcedureDecl struct {
 	NodeType
 	ProcName string
 	Block    *Block
+	Params   []*Param
 }
 
-func NewProcedureDecl(procName string, block *Block) *ProcedureDecl {
+func NewProcedureDecl(procName string, block *Block, params []*Param) *ProcedureDecl {
 	return &ProcedureDecl{
 		ProcName: procName,
 		Block:    block,
+		Params:   params,
+	}
+}
+
+type Param struct {
+	NodeType
+	VarNode  *Var
+	TypeNode *Type
+}
+
+func NewParam(varNode *Var, typeNode *Type) *Param {
+	return &Param{
+		VarNode:  varNode,
+		TypeNode: typeNode,
 	}
 }
