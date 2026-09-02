@@ -40,12 +40,8 @@ func main() {
 		fatal(err)
 	}
 
-	interpreter := interpreter.NewInterpreter(tree)
+	interpreter := interpreter.NewInterpreter(tree, config.ShouldLogStack)
 	if err := interpreter.Interpret(); err != nil {
 		fatal(err)
-	}
-
-	for key, value := range interpreter.GLOBAL_SCOPE {
-		fmt.Printf("%s = %s\n", key, value.String())
 	}
 }

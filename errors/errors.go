@@ -16,6 +16,8 @@ const (
 	// semantic
 	IDNotFound
 	DuplicateID
+	WrongParamCount
+	NotCallable
 
 	// lexical
 	InvalidChar
@@ -32,6 +34,8 @@ var errorCodeNames = [...]string{
 
 	"Identifier not found",
 	"Duplicate identifier",
+	"Wrong number of parameters",
+	"Not callable",
 
 	"Invalid character",
 	"Invalid number literal",

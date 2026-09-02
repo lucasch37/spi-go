@@ -26,8 +26,35 @@ func NewParser(lexer *lexer.Lexer) (*Parser, error) {
 	}, nil
 }
 
+func (p *Parser) Parse() (ast.Node, error) {
+	tree, err := p.program()
+	if err != nil {
+		return nil, err
+	}
+
+	if p.currentToken.Type != tokens.EOF {
+		return nil, p.error(errors.UnexpectedToken)
+	}
+
+	return tree, nil
+}
+
 func (p *Parser) error(code errors.ErrorCode) error {
 	return errors.NewSyntaxError(code, p.currentToken, fmt.Sprintf("%s -> %s", code.String(), p.currentToken.String()))
+}
+
+func (p *Parser) eat(tokenType tokens.TokenType) error {
+	if p.currentToken.Type != tokenType {
+		return p.error(errors.UnexpectedToken)
+	}
+
+	token, err := p.lexer.GetNextToken()
+	if err != nil {
+		return err
+	}
+
+	p.currentToken = token
+	return nil
 }
 
 func (p *Parser) program() (ast.Node, error) {
@@ -326,10 +353,57 @@ func (p *Parser) statement() (ast.Node, error) {
 	case tokens.BEGIN:
 		return p.compoundStatement()
 	case tokens.ID:
-		return p.assignmentStatement()
+		if p.lexer.CurrentChar == '(' {
+			return p.ProcCallStatement()
+		} else {
+			return p.assignmentStatement()
+		}
 	default:
 		return p.empty()
 	}
+}
+
+func (p *Parser) ProcCallStatement() (*ast.ProcedureCall, error) {
+	token := p.currentToken
+	procName := token.Value.(string)
+
+	if err := p.eat(tokens.ID); err != nil {
+		return nil, err
+	}
+
+	if err := p.eat(tokens.LPAREN); err != nil {
+		return nil, err
+	}
+
+	var actualParams []ast.Node
+
+	if p.currentToken.Type != tokens.RPAREN {
+		node, err := p.expr()
+		if err != nil {
+			return nil, err
+		}
+
+		actualParams = append(actualParams, node)
+	}
+
+	for p.currentToken.Type == tokens.COMMA {
+		if err := p.eat(tokens.COMMA); err != nil {
+			return nil, err
+		}
+
+		node, err := p.expr()
+		if err != nil {
+			return nil, err
+		}
+
+		actualParams = append(actualParams, node)
+	}
+
+	if err := p.eat(tokens.RPAREN); err != nil {
+		return nil, err
+	}
+
+	return ast.NewProcedureCall(procName, actualParams, token), nil
 }
 
 func (p *Parser) assignmentStatement() (*ast.Assign, error) {
@@ -365,20 +439,6 @@ func (p *Parser) variable() (*ast.Var, error) {
 
 func (p *Parser) empty() (*ast.NoOp, error) {
 	return ast.NewNoOp(), nil
-}
-
-func (p *Parser) eat(tokenType tokens.TokenType) error {
-	if p.currentToken.Type != tokenType {
-		return p.error(errors.UnexpectedToken)
-	}
-
-	token, err := p.lexer.GetNextToken()
-	if err != nil {
-		return err
-	}
-
-	p.currentToken = token
-	return nil
 }
 
 func (p *Parser) factor() (ast.Node, error) {
@@ -513,17 +573,4 @@ func (p *Parser) expr() (ast.Node, error) {
 	}
 
 	return node, nil
-}
-
-func (p *Parser) Parse() (ast.Node, error) {
-	tree, err := p.program()
-	if err != nil {
-		return nil, err
-	}
-
-	if p.currentToken.Type != tokens.EOF {
-		return nil, p.error(errors.UnexpectedToken)
-	}
-
-	return tree, nil
 }

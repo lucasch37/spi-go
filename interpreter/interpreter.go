@@ -9,14 +9,34 @@ import (
 )
 
 type Interpreter struct {
-	Tree         ast.Node
-	GLOBAL_SCOPE map[string]Object
+	Tree           ast.Node
+	CallStack      *CallStack
+	ShouldLogStack bool
 }
 
-func NewInterpreter(tree ast.Node) *Interpreter {
+func NewInterpreter(tree ast.Node, shouldLogStack bool) *Interpreter {
 	return &Interpreter{
-		Tree:         tree,
-		GLOBAL_SCOPE: make(map[string]Object),
+		Tree:           tree,
+		CallStack:      NewCallStack(),
+		ShouldLogStack: shouldLogStack,
+	}
+}
+
+func (i *Interpreter) Interpret() error {
+	if i.Tree == nil {
+		return nil
+	}
+
+	if _, err := i.visit(i.Tree); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (i *Interpreter) log(msg string) {
+	if i.ShouldLogStack {
+		fmt.Println(msg)
 	}
 }
 
@@ -65,9 +85,29 @@ func (i *Interpreter) visit(node ast.Node) (Object, error) {
 	case *ast.ProcedureDecl:
 		return i.visitProcedureDecl(node)
 
+	case *ast.ProcedureCall:
+		return i.visitProcedureCall(node)
+
 	default:
 		return nil, fmt.Errorf("no visit method for %T", node)
 	}
+}
+
+func (i *Interpreter) visitProgram(node *ast.Program) (Object, error) {
+	programName := node.Name
+	i.log(fmt.Sprintf("\nENTER: PROGRAM %s", programName))
+
+	ar := NewActivationRecord(programName, PROGRAM, 1)
+	i.CallStack.Push(ar)
+	i.log(i.CallStack.String())
+
+	i.visit(node.Block)
+
+	i.log(fmt.Sprintf("LEAVE: PROGRAM %s", programName))
+	i.log(i.CallStack.String())
+	i.CallStack.Pop()
+
+	return nil, nil
 }
 
 func (i *Interpreter) visitBinOp(node *ast.BinOp) (Object, error) {
@@ -81,7 +121,6 @@ func (i *Interpreter) visitBinOp(node *ast.BinOp) (Object, error) {
 		return nil, err
 	}
 
-	// If either operand is REAL, perform floating-point arithmetic.
 	if left.Type() == REAL_OBJ || right.Type() == REAL_OBJ {
 		leftValue, err := toFloat(left)
 		if err != nil {
@@ -114,7 +153,6 @@ func (i *Interpreter) visitBinOp(node *ast.BinOp) (Object, error) {
 		}
 	}
 
-	// Both operands are INTEGER.
 	leftValue := left.(Integer).Value
 	rightValue := right.(Integer).Value
 
@@ -139,7 +177,6 @@ func (i *Interpreter) visitBinOp(node *ast.BinOp) (Object, error) {
 			return nil, i.error(errors.DivideByZero, node.Token)
 		}
 
-		// Use floating-point division for DIV.
 		return Real{Value: float64(leftValue) / float64(rightValue)}, nil
 
 	default:
@@ -216,7 +253,8 @@ func (i *Interpreter) visitAssign(node *ast.Assign) (Object, error) {
 		return nil, err
 	}
 
-	i.GLOBAL_SCOPE[varName] = value
+	ar := i.CallStack.Peek()
+	ar.Set(varName, value)
 
 	return nil, nil
 }
@@ -224,13 +262,10 @@ func (i *Interpreter) visitAssign(node *ast.Assign) (Object, error) {
 func (i *Interpreter) visitVar(node *ast.Var) (Object, error) {
 	varName := node.Value
 
-	value := i.GLOBAL_SCOPE[varName]
+	ar := i.CallStack.Peek()
+	value := ar.Get(varName)
 
 	return value, nil
-}
-
-func (i *Interpreter) visitProgram(node *ast.Program) (Object, error) {
-	return i.visit(node.Block)
 }
 
 func (i *Interpreter) visitBlock(node *ast.Block) (Object, error) {
@@ -255,14 +290,6 @@ func (i *Interpreter) visitProcedureDecl(node *ast.ProcedureDecl) (Object, error
 	return nil, nil
 }
 
-func (i *Interpreter) Interpret() error {
-	if i.Tree == nil {
-		return nil
-	}
-
-	if _, err := i.visit(i.Tree); err != nil {
-		return err
-	}
-
-	return nil
+func (i *Interpreter) visitProcedureCall(node *ast.ProcedureCall) (Object, error) {
+	return nil, nil
 }

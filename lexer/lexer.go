@@ -12,7 +12,7 @@ import (
 type Lexer struct {
 	text        string
 	pos         int
-	currentChar byte
+	CurrentChar byte
 	lineNo      int
 	column      int
 }
@@ -21,7 +21,7 @@ func NewLexer(text string) *Lexer {
 	return &Lexer{
 		text:        text,
 		pos:         0,
-		currentChar: text[0],
+		CurrentChar: text[0],
 		lineNo:      1,
 		column:      1,
 	}
@@ -33,7 +33,7 @@ func (l *Lexer) error(code errors.ErrorCode) error {
 }
 
 func (l *Lexer) advance() {
-	if l.currentChar == '\n' {
+	if l.CurrentChar == '\n' {
 		l.lineNo++
 		l.column = 0
 	}
@@ -42,25 +42,25 @@ func (l *Lexer) advance() {
 
 	if l.pos >= len(l.text) {
 		// 0 represents EOF
-		l.currentChar = 0
+		l.CurrentChar = 0
 	} else {
-		l.currentChar = l.text[l.pos]
+		l.CurrentChar = l.text[l.pos]
 		l.column++
 	}
 }
 
 func (l *Lexer) skipWhitespace() {
-	for l.currentChar != 0 && isWhitespace(l.currentChar) {
+	for l.CurrentChar != 0 && isWhitespace(l.CurrentChar) {
 		l.advance()
 	}
 }
 
 func (l *Lexer) skipComment() error {
-	for l.currentChar != 0 && l.currentChar != '}' {
+	for l.CurrentChar != 0 && l.CurrentChar != '}' {
 		l.advance()
 	}
 
-	if l.currentChar == 0 {
+	if l.CurrentChar == 0 {
 		return l.error(errors.UnterminatedComment)
 	}
 
@@ -81,17 +81,17 @@ func (l *Lexer) peek() byte {
 func (l *Lexer) number() (tokens.Token, error) {
 	var result strings.Builder
 
-	for l.currentChar != 0 && l.currentChar >= '0' && l.currentChar <= '9' {
-		result.WriteString(string(l.currentChar))
+	for l.CurrentChar != 0 && l.CurrentChar >= '0' && l.CurrentChar <= '9' {
+		result.WriteString(string(l.CurrentChar))
 		l.advance()
 	}
 
-	if l.currentChar == '.' {
-		result.WriteString(string(l.currentChar))
+	if l.CurrentChar == '.' {
+		result.WriteString(string(l.CurrentChar))
 		l.advance()
 
-		for l.currentChar != 0 && l.currentChar >= '0' && l.currentChar <= '9' {
-			result.WriteString(string(l.currentChar))
+		for l.CurrentChar != 0 && l.CurrentChar >= '0' && l.CurrentChar <= '9' {
+			result.WriteString(string(l.CurrentChar))
 			l.advance()
 		}
 
@@ -133,8 +133,8 @@ func (l *Lexer) id() tokens.Token {
 
 	result := ""
 
-	for l.currentChar != 0 && isAlphaNumeric(l.currentChar) {
-		result += string(l.currentChar)
+	for l.CurrentChar != 0 && isAlphaNumeric(l.CurrentChar) {
+		result += string(l.CurrentChar)
 		l.advance()
 	}
 
@@ -151,22 +151,22 @@ func (l *Lexer) id() tokens.Token {
 }
 
 func (l *Lexer) GetNextToken() (tokens.Token, error) {
-	for l.currentChar != 0 {
+	for l.CurrentChar != 0 {
 
-		if isWhitespace(l.currentChar) {
+		if isWhitespace(l.CurrentChar) {
 			l.skipWhitespace()
 			continue
 		}
 
-		if l.currentChar >= '0' && l.currentChar <= '9' {
+		if l.CurrentChar >= '0' && l.CurrentChar <= '9' {
 			return l.number()
 		}
 
-		if isAlpha(l.currentChar) {
+		if isAlpha(l.CurrentChar) {
 			return l.id(), nil
 		}
 
-		if l.currentChar == ':' && l.peek() == '=' {
+		if l.CurrentChar == ':' && l.peek() == '=' {
 			l.advance()
 			l.advance()
 			return tokens.Token{
@@ -177,7 +177,7 @@ func (l *Lexer) GetNextToken() (tokens.Token, error) {
 			}, nil
 		}
 
-		if l.currentChar == '{' {
+		if l.CurrentChar == '{' {
 			l.advance()
 			if err := l.skipComment(); err != nil {
 				return tokens.Token{}, err
@@ -185,14 +185,14 @@ func (l *Lexer) GetNextToken() (tokens.Token, error) {
 			continue
 		}
 
-		tokenType, ok := tokens.TokenTypeFromName(l.currentChar)
+		tokenType, ok := tokens.TokenTypeFromName(l.CurrentChar)
 		if !ok {
 			l.error(errors.InvalidChar)
 		}
 
 		token := tokens.Token{
 			Type:   tokenType,
-			Value:  string(l.currentChar),
+			Value:  string(l.CurrentChar),
 			LineNo: l.lineNo,
 			Column: l.column,
 		}

@@ -35,10 +35,10 @@ func (sa *SemanticAnalyzer) log(msg string) {
 func (sa *SemanticAnalyzer) Visit(node ast.Node) error {
 	switch node := node.(type) {
 	case *ast.Program:
-		return sa.VisitProgram(node)
+		return sa.visitProgram(node)
 
 	case *ast.ProcedureDecl:
-		return sa.VisitProcedureDecl(node)
+		return sa.visitProcedureDecl(node)
 
 	case *ast.Block:
 		for _, decl := range node.Declarations {
@@ -77,13 +77,16 @@ func (sa *SemanticAnalyzer) Visit(node ast.Node) error {
 	case *ast.NoOp:
 
 	case *ast.VarDecl:
-		return sa.VisitVarDecl(node)
+		return sa.visitVarDecl(node)
 
 	case *ast.Assign:
-		return sa.VisitAssign(node)
+		return sa.visitAssign(node)
 
 	case *ast.Var:
-		return sa.VisitVar(node)
+		return sa.visitVar(node)
+
+	case *ast.ProcedureCall:
+		return sa.visitProcedureCall(node)
 
 	default:
 		return fmt.Errorf("no visit method for %T", node)
@@ -92,7 +95,7 @@ func (sa *SemanticAnalyzer) Visit(node ast.Node) error {
 	return nil
 }
 
-func (sa *SemanticAnalyzer) VisitProgram(node *ast.Program) error {
+func (sa *SemanticAnalyzer) visitProgram(node *ast.Program) error {
 	sa.log("ENTER scope: global")
 
 	globalScope := NewSymbolTable("global", 1, sa.CurrentScope, sa.ShouldLogScope)
@@ -111,7 +114,7 @@ func (sa *SemanticAnalyzer) VisitProgram(node *ast.Program) error {
 	return nil
 }
 
-func (sa *SemanticAnalyzer) VisitProcedureDecl(node *ast.ProcedureDecl) error {
+func (sa *SemanticAnalyzer) visitProcedureDecl(node *ast.ProcedureDecl) error {
 	procName := node.ProcName
 	procSymbol := NewProcedureSymbol(procName, make([]*VarSymbol, 0))
 	sa.CurrentScope.Insert(procSymbol)
@@ -141,7 +144,7 @@ func (sa *SemanticAnalyzer) VisitProcedureDecl(node *ast.ProcedureDecl) error {
 	return nil
 }
 
-func (sa *SemanticAnalyzer) VisitVarDecl(node *ast.VarDecl) error {
+func (sa *SemanticAnalyzer) visitVarDecl(node *ast.VarDecl) error {
 	typeName := node.TypeNode.Value
 	typeSymbol := sa.CurrentScope.Lookup(typeName, false)
 	varName := node.VarNode.Value
@@ -156,7 +159,7 @@ func (sa *SemanticAnalyzer) VisitVarDecl(node *ast.VarDecl) error {
 	return nil
 }
 
-func (sa *SemanticAnalyzer) VisitAssign(node *ast.Assign) error {
+func (sa *SemanticAnalyzer) visitAssign(node *ast.Assign) error {
 	if err := sa.Visit(node.Right); err != nil {
 		return err
 	}
@@ -168,11 +171,40 @@ func (sa *SemanticAnalyzer) VisitAssign(node *ast.Assign) error {
 	return nil
 }
 
-func (sa *SemanticAnalyzer) VisitVar(node *ast.Var) error {
+func (sa *SemanticAnalyzer) visitVar(node *ast.Var) error {
 	varName := node.Value
 	varSymbol := sa.CurrentScope.Lookup(varName, false)
 	if varSymbol == nil {
 		return sa.error(errors.IDNotFound, node.Token)
+	}
+
+	return nil
+}
+
+func (sa *SemanticAnalyzer) visitProcedureCall(node *ast.ProcedureCall) error {
+	actualParamCount := len(node.ActualParams)
+
+	symbol := sa.CurrentScope.Lookup(node.ProcName, false)
+	if symbol == nil {
+		return sa.error(errors.IDNotFound, node.Token)
+	}
+
+	procSymbol, ok := symbol.(*ProcedureSymbol)
+
+	if !ok {
+		return sa.error(errors.NotCallable, node.Token)
+	}
+
+	paramCount := len(procSymbol.params)
+
+	if paramCount != actualParamCount {
+		return sa.error(errors.WrongParamCount, node.Token)
+	}
+
+	for _, param := range node.ActualParams {
+		if err := sa.Visit(param); err != nil {
+			return err
+		}
 	}
 
 	return nil

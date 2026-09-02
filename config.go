@@ -8,6 +8,7 @@ import (
 type Config struct {
 	InputFile      string
 	ShouldLogScope bool
+	ShouldLogStack bool
 }
 
 func parseArgs() Config {
@@ -15,6 +16,12 @@ func parseArgs() Config {
 		"scope",
 		false,
 		"Print scope information",
+	)
+
+	stack := flag.Bool(
+		"stack",
+		false,
+		"Print call stack information",
 	)
 
 	flag.Parse()
@@ -27,5 +34,6 @@ func parseArgs() Config {
 	return Config{
 		InputFile:      flag.Arg(0),
 		ShouldLogScope: *scope,
+		ShouldLogStack: *stack,
 	}
 }

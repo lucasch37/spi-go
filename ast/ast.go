@@ -252,3 +252,18 @@ func NewParam(varNode *Var, typeNode *Type) *Param {
 		TypeNode: typeNode,
 	}
 }
+
+type ProcedureCall struct {
+	NodeType
+	ProcName     string
+	ActualParams []Node
+	Token        tokens.Token
+}
+
+func NewProcedureCall(procName string, actualParams []Node, token tokens.Token) *ProcedureCall {
+	return &ProcedureCall{
+		ProcName:     procName,
+		ActualParams: actualParams,
+		Token:        token,
+	}
+}
