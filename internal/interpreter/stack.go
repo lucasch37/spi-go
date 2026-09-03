@@ -38,8 +38,8 @@ func (cs *CallStack) String() string {
 }
 
 func (cs *CallStack) Lookup(key string) Object {
-	for _, ar := range cs.Records {
-		if obj, exists := ar.Members[key]; exists {
+	for i := len(cs.Records) - 1; i >= 0; i-- {
+		if obj, exists := cs.Records[i].Members[key]; exists {
 			return obj
 		}
 	}

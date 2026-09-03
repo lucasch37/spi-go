@@ -4,6 +4,11 @@ VAR
    c    : REAL;
    x, y : STRING;
 
+PROCEDURE Print(x : String);
+   BEGIN
+      WriteLn(x)
+   END;
+
 BEGIN
    a := 5;
    b := a;
@@ -12,5 +17,5 @@ BEGIN
    x := 'Hello';
    y := 'World';
 
-   writeln(x + ', ' + y + '!')
+   Print(x + ', ' + y + '!')
 END.
