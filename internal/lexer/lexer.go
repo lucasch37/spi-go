@@ -102,7 +102,7 @@ func (l *Lexer) number() (tokens.Token, error) {
 		}
 
 		return tokens.Token{
-			Type:   tokens.REAL_CONST,
+			Type:   tokens.REAL_LIT,
 			Value:  value,
 			LineNo: l.lineNo,
 			Column: l.column,
@@ -116,7 +116,7 @@ func (l *Lexer) number() (tokens.Token, error) {
 	}
 
 	return tokens.Token{
-		Type:   tokens.INTEGER_CONST,
+		Type:   tokens.INTEGER_LIT,
 		Value:  value,
 		LineNo: l.lineNo,
 		Column: l.column,
@@ -150,6 +150,29 @@ func (l *Lexer) id() tokens.Token {
 	return token
 }
 
+func (l *Lexer) string() tokens.Token {
+	token := tokens.Token{
+		Type:   -1,
+		Value:  nil,
+		LineNo: l.lineNo,
+		Column: l.column,
+	}
+
+	var result strings.Builder
+
+	for l.CurrentChar != 0 && l.CurrentChar != '\'' {
+		result.WriteString(string(l.CurrentChar))
+		l.advance()
+	}
+
+	token.Type = tokens.STRING_LIT
+	token.Value = result.String()
+
+	l.advance()
+
+	return token
+}
+
 func (l *Lexer) GetNextToken() (tokens.Token, error) {
 	for l.CurrentChar != 0 {
 
@@ -164,6 +187,11 @@ func (l *Lexer) GetNextToken() (tokens.Token, error) {
 
 		if isAlpha(l.CurrentChar) {
 			return l.id(), nil
+		}
+
+		if l.CurrentChar == '\'' {
+			l.advance()
+			return l.string(), nil
 		}
 
 		if l.CurrentChar == ':' && l.peek() == '=' {

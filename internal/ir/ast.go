@@ -16,6 +16,7 @@ const (
 	UnaryOpNode
 	IntegerLitNode
 	RealLitNode
+	StringLitNode
 	CompoundNode
 	AssignNode
 	VarNode
@@ -27,24 +28,27 @@ const (
 	ProcedureDeclNode
 	ParamNode
 	ProcedureCallNode
+	WriteStatementNode
 )
 
 var nodeTypeNames = map[NodeType]string{
-	BinOpNode:         "BinOp",
-	UnaryOpNode:       "UnaryOp",
-	IntegerLitNode:    "IntegerLit",
-	RealLitNode:       "RealLit",
-	CompoundNode:      "Compound",
-	AssignNode:        "Assign",
-	VarNode:           "Var",
-	NoOpNode:          "NoOp",
-	ProgramNode:       "Program",
-	BlockNode:         "Block",
-	VarDeclNode:       "VarDecl",
-	TypeNode:          "Type",
-	ProcedureDeclNode: "ProcedureDecl",
-	ParamNode:         "Param",
-	ProcedureCallNode: "ProcedureCall",
+	BinOpNode:          "BinOp",
+	UnaryOpNode:        "UnaryOp",
+	IntegerLitNode:     "IntegerLit",
+	RealLitNode:        "RealLit",
+	StringLitNode:      "StringLit",
+	CompoundNode:       "Compound",
+	AssignNode:         "Assign",
+	VarNode:            "Var",
+	NoOpNode:           "NoOp",
+	ProgramNode:        "Program",
+	BlockNode:          "Block",
+	VarDeclNode:        "VarDecl",
+	TypeNode:           "Type",
+	ProcedureDeclNode:  "ProcedureDecl",
+	ParamNode:          "Param",
+	ProcedureCallNode:  "ProcedureCall",
+	WriteStatementNode: "WriteStatement",
 }
 
 func (nt NodeType) Type() NodeType {
@@ -231,6 +235,20 @@ func NewRealLit(token tokens.Token) *RealLit {
 	}
 }
 
+type StringLit struct {
+	NodeType
+	Token tokens.Token
+	Value string
+}
+
+func NewStringLit(token tokens.Token) *StringLit {
+	return &StringLit{
+		NodeType: StringLitNode,
+		Token:    token,
+		Value:    token.Value.(string),
+	}
+}
+
 type ProcedureDecl struct {
 	NodeType
 	ProcName string
@@ -275,5 +293,21 @@ func NewProcedureCall(procName string, actualParams []Node, token tokens.Token) 
 		ProcName:     procName,
 		ActualParams: actualParams,
 		Token:        token,
+	}
+}
+
+type WriteStatement struct {
+	NodeType
+	NewLine bool
+	Exprs   []Node
+	Token   tokens.Token
+}
+
+func NewWriteStatement(newLine bool, exprs []Node, token tokens.Token) *WriteStatement {
+	return &WriteStatement{
+		NodeType: WriteStatementNode,
+		NewLine:  newLine,
+		Exprs:    exprs,
+		Token:    token,
 	}
 }

@@ -21,16 +21,20 @@ const (
 	PROGRAM
 	INTEGER
 	REAL
+	STRING
 	INTEGER_DIV
 	VAR
 	PROCEDURE
+	WRITE
+	WRITELN
 	BEGIN
 	END
 
 	// misc
 	ID
-	INTEGER_CONST
-	REAL_CONST
+	INTEGER_LIT
+	REAL_LIT
+	STRING_LIT
 	ASSIGN
 	EOF
 )
@@ -50,15 +54,19 @@ var tokenTypeNames = [...]string{
 	"PROGRAM",
 	"INTEGER",
 	"REAL",
+	"STRING",
 	"DIV",
 	"VAR",
 	"PROCEDURE",
+	"WRITE",
+	"WRITELN",
 	"BEGIN",
 	"END",
 
 	"ID",
-	"INTEGER_CONST",
-	"REAL_CONST",
+	"INTEGER_LIT",
+	"REAL_LIT",
+	"STRING_LIT",
 	"ASSIGN",
 	"EOF",
 }

@@ -18,6 +18,7 @@ const (
 	DuplicateID
 	WrongParamCount
 	NotCallable
+	InvalidOperand
 
 	// lexical
 	InvalidChar
@@ -36,6 +37,7 @@ var errorCodeNames = [...]string{
 	"Duplicate identifier",
 	"Wrong number of parameters",
 	"Not callable",
+	"Invalid operand",
 
 	"Invalid character",
 	"Invalid number literal",

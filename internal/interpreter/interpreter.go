@@ -55,6 +55,9 @@ func (i *Interpreter) visit(node ir.Node) (Object, error) {
 	case *ir.RealLit:
 		return i.visitRealLit(node)
 
+	case *ir.StringLit:
+		return i.visitStringLit(node)
+
 	case *ir.UnaryOp:
 		return i.visitUnaryOp(node)
 
@@ -87,6 +90,9 @@ func (i *Interpreter) visit(node ir.Node) (Object, error) {
 
 	case *ir.ProcedureCall:
 		return i.visitProcedureCall(node)
+
+	case *ir.WriteStatement:
+		return i.visitWriteStatement(node)
 
 	default:
 		return nil, fmt.Errorf("no visit method for %T", node)
@@ -121,88 +127,87 @@ func (i *Interpreter) visitBinOp(node *ir.BinOp) (Object, error) {
 		return nil, err
 	}
 
-	if left.Type() == REAL_OBJ || right.Type() == REAL_OBJ {
-		leftValue, err := toFloat(left)
-		if err != nil {
-			return nil, err
-		}
-
-		rightValue, err := toFloat(right)
-		if err != nil {
-			return nil, err
-		}
+	if left.Type() == REAL_OBJ && right.Type() == REAL_OBJ {
+		leftValue := left.(RealObject).Value
+		rightValue := right.(RealObject).Value
 
 		switch node.Op.Type {
 		case tokens.PLUS:
-			return Real{Value: leftValue + rightValue}, nil
+			return RealObject{Value: leftValue + rightValue}, nil
 
 		case tokens.MINUS:
-			return Real{Value: leftValue - rightValue}, nil
+			return RealObject{Value: leftValue - rightValue}, nil
 
 		case tokens.MUL:
-			return Real{Value: leftValue * rightValue}, nil
+			return RealObject{Value: leftValue * rightValue}, nil
 
 		case tokens.FLOAT_DIV:
 			if rightValue == 0 {
 				return nil, i.error(errors.DivideByZero, node.Token)
 			}
-			return Real{Value: leftValue / rightValue}, nil
+			return RealObject{Value: leftValue / rightValue}, nil
 
 		default:
-			return nil, fmt.Errorf("Unknown binary operator")
+			return nil, fmt.Errorf("Unknown binary operator: %s", node.Op.Type.String())
+		}
+	} else if left.Type() == INTEGER_OBJ && right.Type() == INTEGER_OBJ {
+
+		leftValue := left.(IntegerObject).Value
+		rightValue := right.(IntegerObject).Value
+
+		switch node.Op.Type {
+		case tokens.PLUS:
+			return IntegerObject{Value: leftValue + rightValue}, nil
+
+		case tokens.MINUS:
+			return IntegerObject{Value: leftValue - rightValue}, nil
+
+		case tokens.MUL:
+			return IntegerObject{Value: leftValue * rightValue}, nil
+
+		case tokens.INTEGER_DIV:
+			if rightValue == 0 {
+				return nil, i.error(errors.DivideByZero, node.Token)
+			}
+			return IntegerObject{Value: leftValue / rightValue}, nil
+
+		case tokens.FLOAT_DIV:
+			if rightValue == 0 {
+				return nil, i.error(errors.DivideByZero, node.Token)
+			}
+
+			return RealObject{Value: float64(leftValue) / float64(rightValue)}, nil
+
+		default:
+			return nil, fmt.Errorf("Unknown binary operator: %s", node.Op.Type.String())
+		}
+	} else if left.Type() == STRING_OBJ && right.Type() == STRING_OBJ {
+
+		leftValue := left.(StringObject).Value
+		rightValue := right.(StringObject).Value
+
+		switch node.Op.Type {
+		case tokens.PLUS:
+			return StringObject{Value: leftValue + rightValue}, nil
+
+		default:
+			return nil, fmt.Errorf("Unknown binary operator: %s", node.Op.Type.String())
 		}
 	}
 
-	leftValue := left.(Integer).Value
-	rightValue := right.(Integer).Value
-
-	switch node.Op.Type {
-	case tokens.PLUS:
-		return Integer{Value: leftValue + rightValue}, nil
-
-	case tokens.MINUS:
-		return Integer{Value: leftValue - rightValue}, nil
-
-	case tokens.MUL:
-		return Integer{Value: leftValue * rightValue}, nil
-
-	case tokens.INTEGER_DIV:
-		if rightValue == 0 {
-			return nil, i.error(errors.DivideByZero, node.Token)
-		}
-		return Integer{Value: leftValue / rightValue}, nil
-
-	case tokens.FLOAT_DIV:
-		if rightValue == 0 {
-			return nil, i.error(errors.DivideByZero, node.Token)
-		}
-
-		return Real{Value: float64(leftValue) / float64(rightValue)}, nil
-
-	default:
-		return nil, fmt.Errorf("Unknown binary operator: %s", node.Op.Type.String())
-	}
-}
-
-func toFloat(obj Object) (float64, error) {
-	switch value := obj.(type) {
-	case Integer:
-		return float64(value.Value), nil
-
-	case Real:
-		return value.Value, nil
-
-	default:
-		return 0, fmt.Errorf("Cannot convert %T to float", obj)
-	}
+	return nil, fmt.Errorf("Invalid binary operation: %s %s %s", left.Type(), node.Op.Type.String(), right.Type())
 }
 
 func (i *Interpreter) visitIntegerLit(node *ir.IntegerLit) (Object, error) {
-	return Integer{Value: node.Value}, nil
+	return IntegerObject{Value: node.Value}, nil
 }
 
 func (i *Interpreter) visitRealLit(node *ir.RealLit) (Object, error) {
-	return Real{Value: node.Value}, nil
+	return RealObject{Value: node.Value}, nil
+}
+
+func (i *Interpreter) visitStringLit(node *ir.StringLit) (Object, error) {
+	return StringObject{Value: node.Value}, nil
 }
 
 func (i *Interpreter) visitUnaryOp(node *ir.UnaryOp) (Object, error) {
@@ -217,11 +222,11 @@ func (i *Interpreter) visitUnaryOp(node *ir.UnaryOp) (Object, error) {
 
 	case tokens.MINUS:
 		switch value := value.(type) {
-		case Integer:
-			return Integer{Value: -value.Value}, nil
+		case IntegerObject:
+			return IntegerObject{Value: -value.Value}, nil
 
-		case Real:
-			return Real{Value: -value.Value}, nil
+		case RealObject:
+			return RealObject{Value: -value.Value}, nil
 
 		default:
 			return nil, fmt.Errorf("Invalid unary operand: %s", value.Type())
@@ -262,8 +267,7 @@ func (i *Interpreter) visitAssign(node *ir.Assign) (Object, error) {
 func (i *Interpreter) visitVar(node *ir.Var) (Object, error) {
 	varName := node.Value
 
-	ar := i.CallStack.Peek()
-	value := ar.Get(varName)
+	value := i.CallStack.Lookup(varName)
 
 	return value, nil
 }
@@ -320,6 +324,33 @@ func (i *Interpreter) visitProcedureCall(node *ir.ProcedureCall) (Object, error)
 	i.log(i.CallStack.String())
 
 	i.CallStack.Pop()
+
+	return nil, nil
+}
+
+func (i *Interpreter) visitWriteStatement(node *ir.WriteStatement) (Object, error) {
+	if len(node.Exprs) == 0 {
+		if node.NewLine {
+			fmt.Println()
+		} else {
+			fmt.Print(" ")
+		}
+
+		return nil, nil
+	}
+
+	for _, expr := range node.Exprs {
+		val, err := i.visit(expr)
+		if err != nil {
+			return nil, err
+		}
+
+		fmt.Print(val.String())
+	}
+
+	if node.NewLine {
+		fmt.Println()
+	}
 
 	return nil, nil
 }

@@ -37,6 +37,16 @@ func (cs *CallStack) String() string {
 	return "CALL STACK\n" + strings.Join(lines, "\n") + "\n"
 }
 
+func (cs *CallStack) Lookup(key string) Object {
+	for _, ar := range cs.Records {
+		if obj, exists := ar.Members[key]; exists {
+			return obj
+		}
+	}
+
+	return nil
+}
+
 type ARType int
 
 const (

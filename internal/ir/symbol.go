@@ -121,6 +121,7 @@ func NewSymbolTable(scopeName string, scopeLevel int, enclosingScope *SymbolTabl
 func (st *SymbolTable) InitBuiltins() {
 	st.Insert(NewBuiltinTypeSymbol("INTEGER"))
 	st.Insert(NewBuiltinTypeSymbol("REAL"))
+	st.Insert(NewBuiltinTypeSymbol("STRING"))
 }
 
 func (st *SymbolTable) String() string {

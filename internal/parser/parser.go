@@ -14,33 +14,36 @@ program : PROGRAM variable SEMI block DOT
 
 block : declarations compound_statement
 
-declarations : (VAR (variable_declaration SEMI)+)? procedure_declaration*
+declarations : (VAR (variableDeclaration SEMI)+)? procedure_declaration*
 
-variable_declaration : ID (COMMA ID)* COLON type_spec
+variableDeclaration : ID (COMMA ID)* COLON type_spec
 
-procedure_declaration :
-     PROCEDURE ID (LPAREN formal_parameter_list RPAREN)? SEMI block SEMI
+procedureDeclaration :
+     PROCEDURE ID (LPAREN formalParameterList RPAREN)? SEMI block SEMI
 
-formal_params_list : formal_parameters
-                   | formal_parameters SEMI formal_parameter_list
+formalParamsList : formalParameters
+                   | formalParameters SEMI formalParameterList
 
-formal_parameters : ID (COMMA ID)* COLON type_spec
+formalParameters : ID (COMMA ID)* COLON type_spec
 
-type_spec : INTEGER | REAL
+typeSpec : INTEGER | REAL | STRING
 
-compound_statement : BEGIN statement_list END
+compoundStatement : BEGIN statementList END
 
-statement_list : statement
-               | statement SEMI statement_list
+statementList : statement
+               | statement SEMI statementList
 
-statement : compound_statement
-          | proccall_statement
-          | assignment_statement
+statement : compoundStatement
+          | proccallStatement
+          | assignmentStatement
+          | writeStatement
           | empty
 
-proccall_statement : ID LPAREN (expr (COMMA expr)*)? RPAREN
+writeStatement : (WRITE | WRITELN) LPAREN (expr (COMMA expr)*)? RPAREN
 
-assignment_statement : variable ASSIGN expr
+procCallStatement : ID LPAREN (expr (COMMA expr)*)? RPAREN
+
+assignmentStatement : variable ASSIGN expr
 
 empty :
 
@@ -50,8 +53,9 @@ term : factor ((MUL | INTEGER_DIV | FLOAT_DIV) factor)*
 
 factor : PLUS factor
        | MINUS factor
-       | INTEGER_CONST
-       | REAL_CONST
+       | INTEGER_LIT
+       | REAL_LIT
+			 | STRING_LIT
        | LPAREN expr RPAREN
        | variable
 
@@ -337,16 +341,26 @@ func (p *Parser) variableDeclaration() ([]*ir.VarDecl, error) {
 
 func (p *Parser) typeSpec() (*ir.Type, error) {
 	token := p.currentToken
-	if p.currentToken.Type == tokens.INTEGER {
+
+	switch p.currentToken.Type {
+	case tokens.INTEGER:
 		if err := p.eat(tokens.INTEGER); err != nil {
 			return nil, err
 		}
-	} else {
+	case tokens.REAL:
 		if err := p.eat(tokens.REAL); err != nil {
 			return nil, err
 		}
+	case tokens.STRING:
+		if err := p.eat(tokens.STRING); err != nil {
+			return nil, err
+		}
+	default:
+		return nil, p.error(errors.UnexpectedToken)
 	}
+
 	node := ir.NewType(token)
+
 	return node, nil
 }
 
@@ -407,8 +421,66 @@ func (p *Parser) statement() (ir.Node, error) {
 		} else {
 			return p.assignmentStatement()
 		}
+	case tokens.WRITELN:
+		return p.writeStatement()
+
+	case tokens.WRITE:
+		return p.writeStatement()
+
 	default:
 		return p.empty()
+	}
+}
+
+func (p *Parser) writeStatement() (*ir.WriteStatement, error) {
+	token := p.currentToken
+
+	if token.Type == tokens.WRITE {
+		if err := p.eat(tokens.WRITE); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := p.eat(tokens.WRITELN); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := p.eat(tokens.LPAREN); err != nil {
+		return nil, err
+	}
+
+	var expressions []ir.Node
+
+	if p.currentToken.Type != tokens.RPAREN {
+		node, err := p.expr()
+		if err != nil {
+			return nil, err
+		}
+
+		expressions = append(expressions, node)
+	}
+
+	for p.currentToken.Type == tokens.COMMA {
+		if err := p.eat(tokens.COMMA); err != nil {
+			return nil, err
+		}
+
+		node, err := p.expr()
+		if err != nil {
+			return nil, err
+		}
+
+		expressions = append(expressions, node)
+	}
+
+	if err := p.eat(tokens.RPAREN); err != nil {
+		return nil, err
+	}
+
+	if token.Type == tokens.WRITE {
+		return ir.NewWriteStatement(false, expressions, token), nil
+	} else {
+		return ir.NewWriteStatement(true, expressions, token), nil
 	}
 }
 
@@ -514,6 +586,7 @@ func (p *Parser) factor() (ir.Node, error) {
 		}
 
 		expr, err := p.factor()
+		fmt.Println(expr.Type().String())
 		if err != nil {
 			return nil, err
 		}
@@ -521,15 +594,15 @@ func (p *Parser) factor() (ir.Node, error) {
 		node := ir.NewUnaryOp(token, expr)
 		return node, nil
 
-	case tokens.INTEGER_CONST:
-		if err := p.eat(tokens.INTEGER_CONST); err != nil {
+	case tokens.INTEGER_LIT:
+		if err := p.eat(tokens.INTEGER_LIT); err != nil {
 			return nil, err
 		}
 
 		return ir.NewIntegerLit(token), nil
 
-	case tokens.REAL_CONST:
-		if err := p.eat(tokens.REAL_CONST); err != nil {
+	case tokens.REAL_LIT:
+		if err := p.eat(tokens.REAL_LIT); err != nil {
 			return nil, err
 		}
 
@@ -549,6 +622,13 @@ func (p *Parser) factor() (ir.Node, error) {
 			return nil, err
 		}
 		return node, nil
+
+	case tokens.STRING_LIT:
+		if err := p.eat(tokens.STRING_LIT); err != nil {
+			return nil, err
+		}
+
+		return ir.NewStringLit(token), nil
 
 	default:
 		return p.variable()

@@ -61,8 +61,13 @@ func (sa *SemanticAnalyzer) Visit(node ir.Node) error {
 
 	case *ir.IntegerLit:
 	case *ir.RealLit:
+	case *ir.StringLit:
 
 	case *ir.UnaryOp:
+		if node.Expr.Type() == ir.StringLitNode {
+			return sa.error(errors.InvalidOperand, node.Expr.(*ir.StringLit).Token)
+		}
+
 		if err := sa.Visit(node.Expr); err != nil {
 			return err
 		}
@@ -87,6 +92,8 @@ func (sa *SemanticAnalyzer) Visit(node ir.Node) error {
 
 	case *ir.ProcedureCall:
 		return sa.visitProcedureCall(node)
+
+	case *ir.WriteStatement:
 
 	default:
 		return fmt.Errorf("no visit method for %T", node)
