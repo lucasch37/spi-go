@@ -1,5 +1,5 @@
 # spi-go (simple pascal interpreter)
 ### Usage
 ```bash
-go run . program.pas
+go run . --stack=false --scope=false examples/program.pas
 ```

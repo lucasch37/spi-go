@@ -3,9 +3,9 @@ package semantic
 import (
 	"fmt"
 
-	"github.com/lucasch37/spi-go/errors"
-	"github.com/lucasch37/spi-go/ir"
-	"github.com/lucasch37/spi-go/tokens"
+	"github.com/lucasch37/spi-go/internal/errors"
+	"github.com/lucasch37/spi-go/internal/ir"
+	"github.com/lucasch37/spi-go/internal/tokens"
 )
 
 type SemanticAnalyzer struct {

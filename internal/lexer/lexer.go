@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/lucasch37/spi-go/errors"
-	"github.com/lucasch37/spi-go/tokens"
+	"github.com/lucasch37/spi-go/internal/errors"
+	"github.com/lucasch37/spi-go/internal/tokens"
 )
 
 type Lexer struct {

@@ -5,43 +5,45 @@ import (
 	"os"
 	"strings"
 
-	"github.com/lucasch37/spi-go/interpreter"
-	"github.com/lucasch37/spi-go/lexer"
-	"github.com/lucasch37/spi-go/parser"
-	"github.com/lucasch37/spi-go/semantic"
+	"github.com/lucasch37/spi-go/internal/interpreter"
+	"github.com/lucasch37/spi-go/internal/lexer"
+	"github.com/lucasch37/spi-go/internal/parser"
+	"github.com/lucasch37/spi-go/internal/semantic"
 )
 
-func fatal(err error) {
-	fmt.Fprintln(os.Stderr, err)
-	os.Exit(1)
+func main() {
+	if err := run(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 }
 
-func main() {
+func run() error {
 	config := parseArgs()
 
 	data, err := os.ReadFile(config.InputFile)
 	if err != nil {
-		fatal(err)
+		return err
 	}
 
 	lexer := lexer.NewLexer(strings.TrimSpace(string(data)))
+
 	parser, err := parser.NewParser(lexer)
 	if err != nil {
-		fatal(err)
+		return err
 	}
 
 	tree, err := parser.Parse()
 	if err != nil {
-		fatal(err)
+		return err
 	}
 
-	symTabBuilder := semantic.NewSemanticAnalyzer(config.ShouldLogScope)
-	if err := symTabBuilder.Visit(tree); err != nil {
-		fatal(err)
+	analyzer := semantic.NewSemanticAnalyzer(config.ShouldLogScope)
+	if err := analyzer.Visit(tree); err != nil {
+		return err
 	}
 
 	interpreter := interpreter.NewInterpreter(tree, config.ShouldLogStack)
-	if err := interpreter.Interpret(); err != nil {
-		fatal(err)
-	}
+
+	return interpreter.Interpret()
 }
