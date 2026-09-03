@@ -41,10 +41,12 @@ type ARType int
 
 const (
 	PROGRAM ARType = iota
+	PROCEDURE
 )
 
 var arTypeNames = [...]string{
 	"PROGRAM",
+	"PROCEDURE",
 }
 
 func (art ARType) String() string {
@@ -76,7 +78,7 @@ func (ar *ActivationRecord) String() string {
 	lines = append(lines, fmt.Sprintf("%d: %s %s", ar.NestingLevel, ar.Type.String(), ar.Name))
 
 	for k, v := range ar.Members {
-		lines = append(lines, fmt.Sprintf("%s: %v", k, v))
+		lines = append(lines, fmt.Sprintf("   %s: %v", k, v))
 	}
 
 	return strings.Join(lines, "\n")

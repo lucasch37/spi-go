@@ -3,18 +3,18 @@ package interpreter
 import (
 	"fmt"
 
-	"github.com/lucasch37/spi-go/ast"
 	"github.com/lucasch37/spi-go/errors"
+	"github.com/lucasch37/spi-go/ir"
 	"github.com/lucasch37/spi-go/tokens"
 )
 
 type Interpreter struct {
-	Tree           ast.Node
+	Tree           ir.Node
 	CallStack      *CallStack
 	ShouldLogStack bool
 }
 
-func NewInterpreter(tree ast.Node, shouldLogStack bool) *Interpreter {
+func NewInterpreter(tree ir.Node, shouldLogStack bool) *Interpreter {
 	return &Interpreter{
 		Tree:           tree,
 		CallStack:      NewCallStack(),
@@ -44,48 +44,48 @@ func (i *Interpreter) error(code errors.ErrorCode, token tokens.Token) error {
 	return errors.NewRuntimeError(code, token, fmt.Sprintf("%s -> %s", code.String(), token.String()))
 }
 
-func (i *Interpreter) visit(node ast.Node) (Object, error) {
+func (i *Interpreter) visit(node ir.Node) (Object, error) {
 	switch node := node.(type) {
-	case *ast.BinOp:
+	case *ir.BinOp:
 		return i.visitBinOp(node)
 
-	case *ast.IntegerLit:
+	case *ir.IntegerLit:
 		return i.visitIntegerLit(node)
 
-	case *ast.RealLit:
+	case *ir.RealLit:
 		return i.visitRealLit(node)
 
-	case *ast.UnaryOp:
+	case *ir.UnaryOp:
 		return i.visitUnaryOp(node)
 
-	case *ast.Compound:
+	case *ir.Compound:
 		return i.visitCompound(node)
 
-	case *ast.NoOp:
+	case *ir.NoOp:
 		return i.visitNoOp(node)
 
-	case *ast.Assign:
+	case *ir.Assign:
 		return i.visitAssign(node)
 
-	case *ast.Var:
+	case *ir.Var:
 		return i.visitVar(node)
 
-	case *ast.Program:
+	case *ir.Program:
 		return i.visitProgram(node)
 
-	case *ast.Block:
+	case *ir.Block:
 		return i.visitBlock(node)
 
-	case *ast.VarDecl:
+	case *ir.VarDecl:
 		return i.visitVarDecl(node)
 
-	case *ast.Type:
+	case *ir.Type:
 		return i.visitType(node)
 
-	case *ast.ProcedureDecl:
+	case *ir.ProcedureDecl:
 		return i.visitProcedureDecl(node)
 
-	case *ast.ProcedureCall:
+	case *ir.ProcedureCall:
 		return i.visitProcedureCall(node)
 
 	default:
@@ -93,7 +93,7 @@ func (i *Interpreter) visit(node ast.Node) (Object, error) {
 	}
 }
 
-func (i *Interpreter) visitProgram(node *ast.Program) (Object, error) {
+func (i *Interpreter) visitProgram(node *ir.Program) (Object, error) {
 	programName := node.Name
 	i.log(fmt.Sprintf("\nENTER: PROGRAM %s", programName))
 
@@ -110,7 +110,7 @@ func (i *Interpreter) visitProgram(node *ast.Program) (Object, error) {
 	return nil, nil
 }
 
-func (i *Interpreter) visitBinOp(node *ast.BinOp) (Object, error) {
+func (i *Interpreter) visitBinOp(node *ir.BinOp) (Object, error) {
 	left, err := i.visit(node.Left)
 	if err != nil {
 		return nil, err
@@ -197,15 +197,15 @@ func toFloat(obj Object) (float64, error) {
 	}
 }
 
-func (i *Interpreter) visitIntegerLit(node *ast.IntegerLit) (Object, error) {
+func (i *Interpreter) visitIntegerLit(node *ir.IntegerLit) (Object, error) {
 	return Integer{Value: node.Value}, nil
 }
 
-func (i *Interpreter) visitRealLit(node *ast.RealLit) (Object, error) {
+func (i *Interpreter) visitRealLit(node *ir.RealLit) (Object, error) {
 	return Real{Value: node.Value}, nil
 }
 
-func (i *Interpreter) visitUnaryOp(node *ast.UnaryOp) (Object, error) {
+func (i *Interpreter) visitUnaryOp(node *ir.UnaryOp) (Object, error) {
 	value, err := i.visit(node.Expr)
 	if err != nil {
 		return nil, err
@@ -232,7 +232,7 @@ func (i *Interpreter) visitUnaryOp(node *ast.UnaryOp) (Object, error) {
 	}
 }
 
-func (i *Interpreter) visitCompound(node *ast.Compound) (Object, error) {
+func (i *Interpreter) visitCompound(node *ir.Compound) (Object, error) {
 	for _, child := range node.Children {
 		if _, err := i.visit(child); err != nil {
 			return nil, err
@@ -242,11 +242,11 @@ func (i *Interpreter) visitCompound(node *ast.Compound) (Object, error) {
 	return nil, nil
 }
 
-func (i *Interpreter) visitNoOp(node *ast.NoOp) (Object, error) {
+func (i *Interpreter) visitNoOp(node *ir.NoOp) (Object, error) {
 	return nil, nil
 }
 
-func (i *Interpreter) visitAssign(node *ast.Assign) (Object, error) {
+func (i *Interpreter) visitAssign(node *ir.Assign) (Object, error) {
 	varName := node.Left.Value
 	value, err := i.visit(node.Right)
 	if err != nil {
@@ -259,7 +259,7 @@ func (i *Interpreter) visitAssign(node *ast.Assign) (Object, error) {
 	return nil, nil
 }
 
-func (i *Interpreter) visitVar(node *ast.Var) (Object, error) {
+func (i *Interpreter) visitVar(node *ir.Var) (Object, error) {
 	varName := node.Value
 
 	ar := i.CallStack.Peek()
@@ -268,7 +268,7 @@ func (i *Interpreter) visitVar(node *ast.Var) (Object, error) {
 	return value, nil
 }
 
-func (i *Interpreter) visitBlock(node *ast.Block) (Object, error) {
+func (i *Interpreter) visitBlock(node *ir.Block) (Object, error) {
 	for _, declaration := range node.Declarations {
 		if _, err := i.visit(declaration); err != nil {
 			return nil, err
@@ -278,18 +278,48 @@ func (i *Interpreter) visitBlock(node *ast.Block) (Object, error) {
 	return i.visit(node.CompoundStatement)
 }
 
-func (i *Interpreter) visitVarDecl(node *ast.VarDecl) (Object, error) {
+func (i *Interpreter) visitVarDecl(node *ir.VarDecl) (Object, error) {
 	return nil, nil
 }
 
-func (i *Interpreter) visitType(node *ast.Type) (Object, error) {
+func (i *Interpreter) visitType(node *ir.Type) (Object, error) {
 	return nil, nil
 }
 
-func (i *Interpreter) visitProcedureDecl(node *ast.ProcedureDecl) (Object, error) {
+func (i *Interpreter) visitProcedureDecl(node *ir.ProcedureDecl) (Object, error) {
 	return nil, nil
 }
 
-func (i *Interpreter) visitProcedureCall(node *ast.ProcedureCall) (Object, error) {
+func (i *Interpreter) visitProcedureCall(node *ir.ProcedureCall) (Object, error) {
+	procName := node.ProcName
+
+	ar := NewActivationRecord(procName, PROCEDURE, 2)
+
+	formalParams := node.ProcSymbol.Params
+	actualParams := node.ActualParams
+
+	for index, paramSymbol := range formalParams {
+		paramValue, err := i.visit(actualParams[index])
+		if err != nil {
+			return nil, err
+		}
+
+		ar.Set(paramSymbol.Name(), paramValue)
+	}
+
+	i.CallStack.Push(ar)
+
+	i.log(fmt.Sprintf("ENTER: PROCEDURE %s", procName))
+	i.log(i.CallStack.String())
+
+	if _, err := i.visit(node.ProcSymbol.BlockNode); err != nil {
+		return nil, err
+	}
+
+	i.log(fmt.Sprintf("LEAVE: PROCEDURE %s", procName))
+	i.log(i.CallStack.String())
+
+	i.CallStack.Pop()
+
 	return nil, nil
 }

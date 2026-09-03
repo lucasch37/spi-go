@@ -1,4 +1,4 @@
-package ast
+package ir
 
 import (
 	"github.com/lucasch37/spi-go/tokens"
@@ -24,21 +24,27 @@ const (
 	BlockNode
 	VarDeclNode
 	TypeNode
+	ProcedureDeclNode
+	ParamNode
+	ProcedureCallNode
 )
 
 var nodeTypeNames = map[NodeType]string{
-	BinOpNode:      "BinOp",
-	UnaryOpNode:    "UnaryOp",
-	IntegerLitNode: "IntegerLit",
-	RealLitNode:    "RealLit",
-	CompoundNode:   "Compound",
-	AssignNode:     "Assign",
-	VarNode:        "Var",
-	NoOpNode:       "NoOp",
-	ProgramNode:    "Program",
-	BlockNode:      "Block",
-	VarDeclNode:    "VarDecl",
-	TypeNode:       "Type",
+	BinOpNode:         "BinOp",
+	UnaryOpNode:       "UnaryOp",
+	IntegerLitNode:    "IntegerLit",
+	RealLitNode:       "RealLit",
+	CompoundNode:      "Compound",
+	AssignNode:        "Assign",
+	VarNode:           "Var",
+	NoOpNode:          "NoOp",
+	ProgramNode:       "Program",
+	BlockNode:         "Block",
+	VarDeclNode:       "VarDecl",
+	TypeNode:          "Type",
+	ProcedureDeclNode: "ProcedureDecl",
+	ParamNode:         "Param",
+	ProcedureCallNode: "ProcedureCall",
 }
 
 func (nt NodeType) Type() NodeType {
@@ -234,6 +240,7 @@ type ProcedureDecl struct {
 
 func NewProcedureDecl(procName string, block *Block, params []*Param) *ProcedureDecl {
 	return &ProcedureDecl{
+		NodeType: ProcedureDeclNode,
 		ProcName: procName,
 		Block:    block,
 		Params:   params,
@@ -248,6 +255,7 @@ type Param struct {
 
 func NewParam(varNode *Var, typeNode *Type) *Param {
 	return &Param{
+		NodeType: ParamNode,
 		VarNode:  varNode,
 		TypeNode: typeNode,
 	}
@@ -258,10 +266,12 @@ type ProcedureCall struct {
 	ProcName     string
 	ActualParams []Node
 	Token        tokens.Token
+	ProcSymbol   *ProcedureSymbol
 }
 
 func NewProcedureCall(procName string, actualParams []Node, token tokens.Token) *ProcedureCall {
 	return &ProcedureCall{
+		NodeType:     ProcedureCallNode,
 		ProcName:     procName,
 		ActualParams: actualParams,
 		Token:        token,

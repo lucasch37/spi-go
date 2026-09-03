@@ -3,8 +3,8 @@ package parser
 import (
 	"fmt"
 
-	"github.com/lucasch37/spi-go/ast"
 	"github.com/lucasch37/spi-go/errors"
+	"github.com/lucasch37/spi-go/ir"
 	"github.com/lucasch37/spi-go/lexer"
 	"github.com/lucasch37/spi-go/tokens"
 )
@@ -26,7 +26,7 @@ func NewParser(lexer *lexer.Lexer) (*Parser, error) {
 	}, nil
 }
 
-func (p *Parser) Parse() (ast.Node, error) {
+func (p *Parser) Parse() (ir.Node, error) {
 	tree, err := p.program()
 	if err != nil {
 		return nil, err
@@ -57,7 +57,7 @@ func (p *Parser) eat(tokenType tokens.TokenType) error {
 	return nil
 }
 
-func (p *Parser) program() (ast.Node, error) {
+func (p *Parser) program() (ir.Node, error) {
 	if err := p.eat(tokens.PROGRAM); err != nil {
 		return nil, err
 	}
@@ -78,7 +78,7 @@ func (p *Parser) program() (ast.Node, error) {
 		return nil, err
 	}
 
-	programNode := ast.NewProgram(progName, blockNode)
+	programNode := ir.NewProgram(progName, blockNode)
 
 	if err := p.eat(tokens.DOT); err != nil {
 		return nil, err
@@ -87,7 +87,7 @@ func (p *Parser) program() (ast.Node, error) {
 	return programNode, nil
 }
 
-func (p *Parser) block() (*ast.Block, error) {
+func (p *Parser) block() (*ir.Block, error) {
 	declarationNodes, err := p.declarations()
 	if err != nil {
 		return nil, err
@@ -98,12 +98,12 @@ func (p *Parser) block() (*ast.Block, error) {
 		return nil, err
 	}
 
-	node := ast.NewBlock(declarationNodes, compoundStatementNode)
+	node := ir.NewBlock(declarationNodes, compoundStatementNode)
 	return node, nil
 }
 
-func (p *Parser) declarations() ([]ast.Node, error) {
-	var declarations []ast.Node
+func (p *Parser) declarations() ([]ir.Node, error) {
+	var declarations []ir.Node
 	for p.currentToken.Type == tokens.VAR {
 		if err := p.eat(tokens.VAR); err != nil {
 			return nil, err
@@ -137,7 +137,7 @@ func (p *Parser) declarations() ([]ast.Node, error) {
 	return declarations, nil
 }
 
-func (p *Parser) ProcedureDeclaraton() (*ast.ProcedureDecl, error) {
+func (p *Parser) ProcedureDeclaraton() (*ir.ProcedureDecl, error) {
 	if err := p.eat(tokens.PROCEDURE); err != nil {
 		return nil, err
 	}
@@ -148,7 +148,7 @@ func (p *Parser) ProcedureDeclaraton() (*ast.ProcedureDecl, error) {
 		return nil, err
 	}
 
-	var params []*ast.Param
+	var params []*ir.Param
 
 	if p.currentToken.Type == tokens.LPAREN {
 		if err := p.eat(tokens.LPAREN); err != nil {
@@ -176,7 +176,7 @@ func (p *Parser) ProcedureDeclaraton() (*ast.ProcedureDecl, error) {
 		return nil, err
 	}
 
-	procDecl := ast.NewProcedureDecl(procName, blockNode, params)
+	procDecl := ir.NewProcedureDecl(procName, blockNode, params)
 
 	if err := p.eat(tokens.SEMI); err != nil {
 		return nil, err
@@ -185,8 +185,8 @@ func (p *Parser) ProcedureDeclaraton() (*ast.ProcedureDecl, error) {
 	return procDecl, nil
 }
 
-func (p *Parser) formalParamaters() ([]*ast.Param, error) {
-	var paramNodes []*ast.Param
+func (p *Parser) formalParamaters() ([]*ir.Param, error) {
+	var paramNodes []*ir.Param
 
 	paramTokens := []tokens.Token{p.currentToken}
 
@@ -216,16 +216,16 @@ func (p *Parser) formalParamaters() ([]*ast.Param, error) {
 	}
 
 	for _, paramToken := range paramTokens {
-		paramNode := ast.NewParam(ast.NewVar(paramToken), typeNode)
+		paramNode := ir.NewParam(ir.NewVar(paramToken), typeNode)
 		paramNodes = append(paramNodes, paramNode)
 	}
 
 	return paramNodes, nil
 }
 
-func (p *Parser) formalParameterList() ([]*ast.Param, error) {
+func (p *Parser) formalParameterList() ([]*ir.Param, error) {
 	if p.currentToken.Type != tokens.ID {
-		return make([]*ast.Param, 0), nil
+		return make([]*ir.Param, 0), nil
 	}
 
 	paramNodes, err := p.formalParamaters()
@@ -249,8 +249,8 @@ func (p *Parser) formalParameterList() ([]*ast.Param, error) {
 	return paramNodes, nil
 }
 
-func (p *Parser) variableDeclaration() ([]*ast.VarDecl, error) {
-	varNodes := []*ast.Var{{
+func (p *Parser) variableDeclaration() ([]*ir.VarDecl, error) {
+	varNodes := []*ir.Var{{
 		Token: p.currentToken,
 		Value: p.currentToken.Value.(string),
 	}}
@@ -263,7 +263,7 @@ func (p *Parser) variableDeclaration() ([]*ast.VarDecl, error) {
 			return nil, err
 		}
 
-		varNodes = append(varNodes, ast.NewVar(p.currentToken))
+		varNodes = append(varNodes, ir.NewVar(p.currentToken))
 		if err := p.eat(tokens.ID); err != nil {
 			return nil, err
 		}
@@ -278,15 +278,15 @@ func (p *Parser) variableDeclaration() ([]*ast.VarDecl, error) {
 		return nil, err
 	}
 
-	var varDeclarations []*ast.VarDecl
+	var varDeclarations []*ir.VarDecl
 	for _, varNode := range varNodes {
-		varDeclarations = append(varDeclarations, ast.NewVarDecl(varNode, typeNode))
+		varDeclarations = append(varDeclarations, ir.NewVarDecl(varNode, typeNode))
 	}
 
 	return varDeclarations, nil
 }
 
-func (p *Parser) typeSpec() (*ast.Type, error) {
+func (p *Parser) typeSpec() (*ir.Type, error) {
 	token := p.currentToken
 	if p.currentToken.Type == tokens.INTEGER {
 		if err := p.eat(tokens.INTEGER); err != nil {
@@ -297,11 +297,11 @@ func (p *Parser) typeSpec() (*ast.Type, error) {
 			return nil, err
 		}
 	}
-	node := ast.NewType(token)
+	node := ir.NewType(token)
 	return node, nil
 }
 
-func (p *Parser) compoundStatement() (*ast.Compound, error) {
+func (p *Parser) compoundStatement() (*ir.Compound, error) {
 	if err := p.eat(tokens.BEGIN); err != nil {
 		return nil, err
 	}
@@ -315,17 +315,17 @@ func (p *Parser) compoundStatement() (*ast.Compound, error) {
 		return nil, err
 	}
 
-	root := ast.NewCompound(nodes)
+	root := ir.NewCompound(nodes)
 	return root, nil
 }
 
-func (p *Parser) statementList() ([]ast.Node, error) {
+func (p *Parser) statementList() ([]ir.Node, error) {
 	node, err := p.statement()
 	if err != nil {
 		return nil, err
 	}
 
-	results := []ast.Node{
+	results := []ir.Node{
 		node,
 	}
 
@@ -348,7 +348,7 @@ func (p *Parser) statementList() ([]ast.Node, error) {
 	return results, nil
 }
 
-func (p *Parser) statement() (ast.Node, error) {
+func (p *Parser) statement() (ir.Node, error) {
 	switch p.currentToken.Type {
 	case tokens.BEGIN:
 		return p.compoundStatement()
@@ -363,7 +363,7 @@ func (p *Parser) statement() (ast.Node, error) {
 	}
 }
 
-func (p *Parser) ProcCallStatement() (*ast.ProcedureCall, error) {
+func (p *Parser) ProcCallStatement() (*ir.ProcedureCall, error) {
 	token := p.currentToken
 	procName := token.Value.(string)
 
@@ -375,7 +375,7 @@ func (p *Parser) ProcCallStatement() (*ast.ProcedureCall, error) {
 		return nil, err
 	}
 
-	var actualParams []ast.Node
+	var actualParams []ir.Node
 
 	if p.currentToken.Type != tokens.RPAREN {
 		node, err := p.expr()
@@ -403,10 +403,10 @@ func (p *Parser) ProcCallStatement() (*ast.ProcedureCall, error) {
 		return nil, err
 	}
 
-	return ast.NewProcedureCall(procName, actualParams, token), nil
+	return ir.NewProcedureCall(procName, actualParams, token), nil
 }
 
-func (p *Parser) assignmentStatement() (*ast.Assign, error) {
+func (p *Parser) assignmentStatement() (*ir.Assign, error) {
 	left, err := p.variable()
 	if err != nil {
 		return nil, err
@@ -423,13 +423,13 @@ func (p *Parser) assignmentStatement() (*ast.Assign, error) {
 		return nil, err
 	}
 
-	node := ast.NewAssign(left, token, right)
+	node := ir.NewAssign(left, token, right)
 
 	return node, nil
 }
 
-func (p *Parser) variable() (*ast.Var, error) {
-	node := ast.NewVar(p.currentToken)
+func (p *Parser) variable() (*ir.Var, error) {
+	node := ir.NewVar(p.currentToken)
 
 	if err := p.eat(tokens.ID); err != nil {
 		return nil, err
@@ -437,11 +437,11 @@ func (p *Parser) variable() (*ast.Var, error) {
 	return node, nil
 }
 
-func (p *Parser) empty() (*ast.NoOp, error) {
-	return ast.NewNoOp(), nil
+func (p *Parser) empty() (*ir.NoOp, error) {
+	return ir.NewNoOp(), nil
 }
 
-func (p *Parser) factor() (ast.Node, error) {
+func (p *Parser) factor() (ir.Node, error) {
 	token := p.currentToken
 
 	switch token.Type {
@@ -455,7 +455,7 @@ func (p *Parser) factor() (ast.Node, error) {
 			return nil, err
 		}
 
-		node := ast.NewUnaryOp(token, expr)
+		node := ir.NewUnaryOp(token, expr)
 
 		return node, nil
 
@@ -469,7 +469,7 @@ func (p *Parser) factor() (ast.Node, error) {
 			return nil, err
 		}
 
-		node := ast.NewUnaryOp(token, expr)
+		node := ir.NewUnaryOp(token, expr)
 		return node, nil
 
 	case tokens.INTEGER_CONST:
@@ -477,14 +477,14 @@ func (p *Parser) factor() (ast.Node, error) {
 			return nil, err
 		}
 
-		return ast.NewIntegerLit(token), nil
+		return ir.NewIntegerLit(token), nil
 
 	case tokens.REAL_CONST:
 		if err := p.eat(tokens.REAL_CONST); err != nil {
 			return nil, err
 		}
 
-		return ast.NewRealLit(token), nil
+		return ir.NewRealLit(token), nil
 
 	case tokens.LPAREN:
 		if err := p.eat(tokens.LPAREN); err != nil {
@@ -506,7 +506,7 @@ func (p *Parser) factor() (ast.Node, error) {
 	}
 }
 
-func (p *Parser) term() (ast.Node, error) {
+func (p *Parser) term() (ir.Node, error) {
 	node, err := p.factor()
 	if err != nil {
 		return nil, err
@@ -537,13 +537,13 @@ func (p *Parser) term() (ast.Node, error) {
 			return nil, err
 		}
 
-		node = ast.NewBinOp(node, token, right)
+		node = ir.NewBinOp(node, token, right)
 	}
 
 	return node, nil
 }
 
-func (p *Parser) expr() (ast.Node, error) {
+func (p *Parser) expr() (ir.Node, error) {
 	node, err := p.term()
 	if err != nil {
 		return nil, err
@@ -569,7 +569,7 @@ func (p *Parser) expr() (ast.Node, error) {
 			return nil, err
 		}
 
-		node = ast.NewBinOp(node, token, right)
+		node = ir.NewBinOp(node, token, right)
 	}
 
 	return node, nil

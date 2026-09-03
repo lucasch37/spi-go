@@ -3,13 +3,13 @@ package semantic
 import (
 	"fmt"
 
-	"github.com/lucasch37/spi-go/ast"
 	"github.com/lucasch37/spi-go/errors"
+	"github.com/lucasch37/spi-go/ir"
 	"github.com/lucasch37/spi-go/tokens"
 )
 
 type SemanticAnalyzer struct {
-	CurrentScope   *SymbolTable
+	CurrentScope   *ir.SymbolTable
 	ShouldLogScope bool
 }
 
@@ -32,15 +32,15 @@ func (sa *SemanticAnalyzer) log(msg string) {
 	}
 }
 
-func (sa *SemanticAnalyzer) Visit(node ast.Node) error {
+func (sa *SemanticAnalyzer) Visit(node ir.Node) error {
 	switch node := node.(type) {
-	case *ast.Program:
+	case *ir.Program:
 		return sa.visitProgram(node)
 
-	case *ast.ProcedureDecl:
+	case *ir.ProcedureDecl:
 		return sa.visitProcedureDecl(node)
 
-	case *ast.Block:
+	case *ir.Block:
 		for _, decl := range node.Declarations {
 			if err := sa.Visit(decl); err != nil {
 				return err
@@ -50,7 +50,7 @@ func (sa *SemanticAnalyzer) Visit(node ast.Node) error {
 			return err
 		}
 
-	case *ast.BinOp:
+	case *ir.BinOp:
 		if err := sa.Visit(node.Left); err != nil {
 			return err
 		}
@@ -59,33 +59,33 @@ func (sa *SemanticAnalyzer) Visit(node ast.Node) error {
 			return err
 		}
 
-	case *ast.IntegerLit:
-	case *ast.RealLit:
+	case *ir.IntegerLit:
+	case *ir.RealLit:
 
-	case *ast.UnaryOp:
+	case *ir.UnaryOp:
 		if err := sa.Visit(node.Expr); err != nil {
 			return err
 		}
 
-	case *ast.Compound:
+	case *ir.Compound:
 		for _, node := range node.Children {
 			if err := sa.Visit(node); err != nil {
 				return err
 			}
 		}
 
-	case *ast.NoOp:
+	case *ir.NoOp:
 
-	case *ast.VarDecl:
+	case *ir.VarDecl:
 		return sa.visitVarDecl(node)
 
-	case *ast.Assign:
+	case *ir.Assign:
 		return sa.visitAssign(node)
 
-	case *ast.Var:
+	case *ir.Var:
 		return sa.visitVar(node)
 
-	case *ast.ProcedureCall:
+	case *ir.ProcedureCall:
 		return sa.visitProcedureCall(node)
 
 	default:
@@ -95,10 +95,10 @@ func (sa *SemanticAnalyzer) Visit(node ast.Node) error {
 	return nil
 }
 
-func (sa *SemanticAnalyzer) visitProgram(node *ast.Program) error {
+func (sa *SemanticAnalyzer) visitProgram(node *ir.Program) error {
 	sa.log("ENTER scope: global")
 
-	globalScope := NewSymbolTable("global", 1, sa.CurrentScope, sa.ShouldLogScope)
+	globalScope := ir.NewSymbolTable("global", 1, sa.CurrentScope, sa.ShouldLogScope)
 	globalScope.InitBuiltins()
 	sa.CurrentScope = globalScope
 
@@ -114,22 +114,22 @@ func (sa *SemanticAnalyzer) visitProgram(node *ast.Program) error {
 	return nil
 }
 
-func (sa *SemanticAnalyzer) visitProcedureDecl(node *ast.ProcedureDecl) error {
+func (sa *SemanticAnalyzer) visitProcedureDecl(node *ir.ProcedureDecl) error {
 	procName := node.ProcName
-	procSymbol := NewProcedureSymbol(procName, make([]*VarSymbol, 0))
+	procSymbol := ir.NewProcedureSymbol(procName, make([]*ir.VarSymbol, 0))
 	sa.CurrentScope.Insert(procSymbol)
 
 	sa.log(fmt.Sprintf("ENTER scope: %s", procName))
-	procScope := NewSymbolTable(procName, sa.CurrentScope.ScopeLevel+1, sa.CurrentScope, sa.ShouldLogScope)
+	procScope := ir.NewSymbolTable(procName, sa.CurrentScope.ScopeLevel+1, sa.CurrentScope, sa.ShouldLogScope)
 	sa.CurrentScope = procScope
 
 	for _, param := range node.Params {
 		paramType := sa.CurrentScope.Lookup(param.TypeNode.Value, false)
 		paramName := param.VarNode.Value
-		varSymbol := NewVarSymbol(paramName, paramType)
+		varSymbol := ir.NewVarSymbol(paramName, paramType)
 
 		sa.CurrentScope.Insert(varSymbol)
-		procSymbol.params = append(procSymbol.params, varSymbol)
+		procSymbol.Params = append(procSymbol.Params, varSymbol)
 	}
 
 	if err := sa.Visit(node.Block); err != nil {
@@ -141,14 +141,16 @@ func (sa *SemanticAnalyzer) visitProcedureDecl(node *ast.ProcedureDecl) error {
 	sa.CurrentScope = sa.CurrentScope.EnclosingScope
 	sa.log(fmt.Sprintf("LEAVE scope: %s", procName))
 
+	procSymbol.BlockNode = node.Block
+
 	return nil
 }
 
-func (sa *SemanticAnalyzer) visitVarDecl(node *ast.VarDecl) error {
+func (sa *SemanticAnalyzer) visitVarDecl(node *ir.VarDecl) error {
 	typeName := node.TypeNode.Value
 	typeSymbol := sa.CurrentScope.Lookup(typeName, false)
 	varName := node.VarNode.Value
-	varSymbol := NewVarSymbol(varName, typeSymbol)
+	varSymbol := ir.NewVarSymbol(varName, typeSymbol)
 
 	if sa.CurrentScope.Lookup(varName, true) != nil {
 		return sa.error(errors.DuplicateID, node.VarNode.Token)
@@ -159,7 +161,7 @@ func (sa *SemanticAnalyzer) visitVarDecl(node *ast.VarDecl) error {
 	return nil
 }
 
-func (sa *SemanticAnalyzer) visitAssign(node *ast.Assign) error {
+func (sa *SemanticAnalyzer) visitAssign(node *ir.Assign) error {
 	if err := sa.Visit(node.Right); err != nil {
 		return err
 	}
@@ -171,7 +173,7 @@ func (sa *SemanticAnalyzer) visitAssign(node *ast.Assign) error {
 	return nil
 }
 
-func (sa *SemanticAnalyzer) visitVar(node *ast.Var) error {
+func (sa *SemanticAnalyzer) visitVar(node *ir.Var) error {
 	varName := node.Value
 	varSymbol := sa.CurrentScope.Lookup(varName, false)
 	if varSymbol == nil {
@@ -181,7 +183,7 @@ func (sa *SemanticAnalyzer) visitVar(node *ast.Var) error {
 	return nil
 }
 
-func (sa *SemanticAnalyzer) visitProcedureCall(node *ast.ProcedureCall) error {
+func (sa *SemanticAnalyzer) visitProcedureCall(node *ir.ProcedureCall) error {
 	actualParamCount := len(node.ActualParams)
 
 	symbol := sa.CurrentScope.Lookup(node.ProcName, false)
@@ -189,13 +191,13 @@ func (sa *SemanticAnalyzer) visitProcedureCall(node *ast.ProcedureCall) error {
 		return sa.error(errors.IDNotFound, node.Token)
 	}
 
-	procSymbol, ok := symbol.(*ProcedureSymbol)
+	procSymbol, ok := symbol.(*ir.ProcedureSymbol)
 
 	if !ok {
 		return sa.error(errors.NotCallable, node.Token)
 	}
 
-	paramCount := len(procSymbol.params)
+	paramCount := len(procSymbol.Params)
 
 	if paramCount != actualParamCount {
 		return sa.error(errors.WrongParamCount, node.Token)
@@ -206,6 +208,8 @@ func (sa *SemanticAnalyzer) visitProcedureCall(node *ast.ProcedureCall) error {
 			return err
 		}
 	}
+
+	node.ProcSymbol = procSymbol
 
 	return nil
 }

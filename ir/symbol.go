@@ -1,4 +1,4 @@
-package semantic
+package ir
 
 import (
 	"fmt"
@@ -58,19 +58,20 @@ func (v *VarSymbol) Type() string {
 }
 
 type ProcedureSymbol struct {
-	name   string
-	params []*VarSymbol
+	name      string
+	Params    []*VarSymbol
+	BlockNode *Block
 }
 
 func NewProcedureSymbol(name string, params []*VarSymbol) *ProcedureSymbol {
 	return &ProcedureSymbol{
 		name:   name,
-		params: params,
+		Params: params,
 	}
 }
 
 func (p *ProcedureSymbol) String() string {
-	return fmt.Sprintf("<ProcedureSymbol(name='%s', params='%v')>", p.name, p.params)
+	return fmt.Sprintf("<ProcedureSymbol(name='%s', params='%v')>", p.name, p.Params)
 }
 
 func (p *ProcedureSymbol) Name() string {
