@@ -9,10 +9,12 @@ type Symbol interface {
 	Name() string
 	Type() string
 	String() string
+	SetScopeLevel(level int)
 }
 
 type BuiltinTypeSymbol struct {
-	name string
+	name       string
+	ScopeLevel int
 }
 
 func NewBuiltinTypeSymbol(name string) *BuiltinTypeSymbol {
@@ -33,9 +35,14 @@ func (b *BuiltinTypeSymbol) Type() string {
 	return ""
 }
 
+func (b *BuiltinTypeSymbol) SetScopeLevel(level int) {
+	b.ScopeLevel = level
+}
+
 type VarSymbol struct {
-	name string
-	typ  Symbol
+	name       string
+	typ        Symbol
+	ScopeLevel int
 }
 
 func NewVarSymbol(name string, typ Symbol) *VarSymbol {
@@ -57,10 +64,15 @@ func (v *VarSymbol) Type() string {
 	return v.typ.Name()
 }
 
+func (v *VarSymbol) SetScopeLevel(level int) {
+	v.ScopeLevel = level
+}
+
 type ProcedureSymbol struct {
-	name      string
-	Params    []*VarSymbol
-	BlockNode *Block
+	name       string
+	Params     []*VarSymbol
+	BlockNode  *Block
+	ScopeLevel int
 }
 
 func NewProcedureSymbol(name string, params []*VarSymbol) *ProcedureSymbol {
@@ -80,6 +92,10 @@ func (p *ProcedureSymbol) Name() string {
 
 func (p *ProcedureSymbol) Type() string {
 	return ""
+}
+
+func (p *ProcedureSymbol) SetScopeLevel(level int) {
+	p.ScopeLevel = level
 }
 
 type SymbolTable struct {
@@ -150,6 +166,9 @@ func (st *SymbolTable) log(msg string) {
 
 func (st *SymbolTable) Insert(symbol Symbol) {
 	st.log(fmt.Sprintf("Insert: %s", symbol.Name()))
+
+	symbol.SetScopeLevel(st.ScopeLevel)
+
 	st.Symbols[symbol.Name()] = symbol
 }
 

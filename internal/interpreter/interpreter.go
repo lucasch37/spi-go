@@ -293,7 +293,7 @@ func (i *Interpreter) visitProcedureDecl(node *ir.ProcedureDecl) (Object, error)
 func (i *Interpreter) visitProcedureCall(node *ir.ProcedureCall) (Object, error) {
 	procName := node.ProcName
 
-	ar := NewActivationRecord(procName, PROCEDURE, 2)
+	ar := NewActivationRecord(procName, PROCEDURE, node.ProcSymbol.ScopeLevel+1)
 
 	formalParams := node.ProcSymbol.Params
 	actualParams := node.ActualParams
