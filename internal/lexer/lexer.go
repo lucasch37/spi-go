@@ -268,7 +268,7 @@ func (l *Lexer) GetNextToken() (tokens.Token, error) {
 
 		tokenType, ok := tokens.TokenTypeFromName(l.CurrentChar)
 		if !ok {
-			l.error(errors.InvalidChar)
+			return tokens.Token{}, l.error(errors.InvalidChar)
 		}
 
 		token := tokens.Token{

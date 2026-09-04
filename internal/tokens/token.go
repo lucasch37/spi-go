@@ -36,6 +36,7 @@ const (
 	IF
 	THEN
 	ELSE
+	MOD
 	BEGIN
 	END
 
@@ -81,6 +82,7 @@ var tokenTypeNames = [...]string{
 	"IF",
 	"THEN",
 	"ELSE",
+	"MOD",
 	"BEGIN",
 	"END",
 

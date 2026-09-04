@@ -179,6 +179,13 @@ func (sa *SemanticAnalyzer) visitBinOp(node *ir.BinOp) (ir.DataType, error) {
 
 		return ir.IntegerType, nil
 
+	case tokens.MOD:
+		if leftType != ir.IntegerType || rightType != ir.IntegerType {
+			return ir.NoType, sa.error(errors.TypeMismatch, node.Token)
+		}
+
+		return ir.IntegerType, nil
+
 	case tokens.INTEGER_DIV:
 		if leftType != ir.IntegerType || rightType != ir.IntegerType {
 			return ir.NoType, sa.error(errors.TypeMismatch, node.Token)

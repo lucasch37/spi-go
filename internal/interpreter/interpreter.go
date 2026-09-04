@@ -264,6 +264,9 @@ func (i *Interpreter) visitBinOp(node *ir.BinOp) (Object, error) {
 		case tokens.MUL:
 			return IntegerObject{Value: leftValue * rightValue}, nil
 
+		case tokens.MOD:
+			return IntegerObject{Value: leftValue % rightValue}, nil
+
 		case tokens.INTEGER_DIV:
 			if rightValue == 0 {
 				return nil, i.error(errors.DivideByZero, node.Token)

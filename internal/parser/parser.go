@@ -55,7 +55,7 @@ relOp : EQUAL | NOT_EQUAL | LESS_THAN | LESS_THAN_EQUAL | GREATER_THAN | GREATER
 
 arithmeticExpr : term ((PLUS | MINUS) term)*
 
-term : factor ((MUL | INTEGER_DIV | FLOAT_DIV) factor)*
+term : factor ((MUL | INTEGER_DIV | FLOAT_DIV | MOD) factor)*
 
 factor : PLUS factor
        | MINUS factor
@@ -703,7 +703,9 @@ func (p *Parser) term() (ir.Node, error) {
 	}
 
 	for p.currentToken.Type == tokens.MUL ||
-		p.currentToken.Type == tokens.INTEGER_DIV || p.currentToken.Type == tokens.FLOAT_DIV {
+		p.currentToken.Type == tokens.INTEGER_DIV ||
+		p.currentToken.Type == tokens.FLOAT_DIV ||
+		p.currentToken.Type == tokens.MOD {
 
 		token := p.currentToken
 
@@ -718,6 +720,11 @@ func (p *Parser) term() (ir.Node, error) {
 			}
 		case tokens.FLOAT_DIV:
 			if err := p.eat(tokens.FLOAT_DIV); err != nil {
+				return nil, err
+			}
+
+		case tokens.MOD:
+			if err := p.eat(tokens.MOD); err != nil {
 				return nil, err
 			}
 		}
@@ -789,5 +796,10 @@ func (p *Parser) expr() (ir.Node, error) {
 }
 
 func isRelOp(tokenType tokens.TokenType) bool {
-	return tokenType == tokens.EQUAL || tokenType == tokens.NOT_EQUAL || tokenType == tokens.LESS_THAN || tokenType == tokens.LESS_THAN_EQUAL || tokenType == tokens.GREATER_THAN || tokenType == tokens.GREATER_THAN_EQUAL
+	return tokenType == tokens.EQUAL ||
+		tokenType == tokens.NOT_EQUAL ||
+		tokenType == tokens.LESS_THAN ||
+		tokenType == tokens.LESS_THAN_EQUAL ||
+		tokenType == tokens.GREATER_THAN ||
+		tokenType == tokens.GREATER_THAN_EQUAL
 }

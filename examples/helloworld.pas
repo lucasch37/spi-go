@@ -11,5 +11,5 @@ begin
    x := 'Hello';
    y := 'World';
 
-   foo(x + ', ' + y + '!' + 2)
+   foo(x + ', ' + y + '!')
 end.
