@@ -8,6 +8,7 @@ const (
 	INTEGER_OBJ ObjectType = "INTEGER"
 	REAL_OBJ    ObjectType = "REAL"
 	STRING_OBJ  ObjectType = "STRING"
+	BOOLEAN_OBJ ObjectType = "BOOLEAN"
 )
 
 type Object interface {
@@ -49,4 +50,16 @@ func (s StringObject) Type() ObjectType {
 
 func (s StringObject) String() string {
 	return fmt.Sprintf("%s", s.Value)
+}
+
+type BooleanObject struct {
+	Value bool
+}
+
+func (b BooleanObject) Type() ObjectType {
+	return BOOLEAN_OBJ
+}
+
+func (b BooleanObject) String() string {
+	return fmt.Sprintf("%v", b.Value)
 }

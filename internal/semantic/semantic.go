@@ -62,10 +62,18 @@ func (sa *SemanticAnalyzer) Visit(node ir.Node) error {
 	case *ir.IntegerLit:
 	case *ir.RealLit:
 	case *ir.StringLit:
+	case *ir.BooleanLit:
 
 	case *ir.UnaryOp:
-		if node.Expr.Type() == ir.StringLitNode {
-			return sa.error(errors.InvalidOperand, node.Expr.(*ir.StringLit).Token)
+		if node.Expr.Type() != ir.IntegerLitNode && node.Expr.Type() != ir.RealLitNode {
+			switch node.Expr.(type) {
+			case *ir.StringLit:
+				return sa.error(errors.InvalidOperand, node.Expr.(*ir.StringLit).Token)
+			case *ir.BooleanLit:
+				return sa.error(errors.InvalidOperand, node.Expr.(*ir.BooleanLit).Token)
+			case *ir.Var:
+				return sa.error(errors.InvalidOperand, node.Expr.(*ir.Var).Token)
+			}
 		}
 
 		if err := sa.Visit(node.Expr); err != nil {
@@ -94,6 +102,26 @@ func (sa *SemanticAnalyzer) Visit(node ir.Node) error {
 		return sa.visitProcedureCall(node)
 
 	case *ir.WriteStatement:
+		for _, node := range node.Exprs {
+			if err := sa.Visit(node); err != nil {
+				return err
+			}
+		}
+
+	case *ir.IfStatement:
+		if err := sa.Visit(node.Condition); err != nil {
+			return err
+		}
+
+		if err := sa.Visit(node.Statement); err != nil {
+			return err
+		}
+
+		if node.Alternative != nil {
+			if err := sa.Visit(node.Alternative); err != nil {
+				return err
+			}
+		}
 
 	default:
 		return fmt.Errorf("no visit method for %T", node)

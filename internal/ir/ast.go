@@ -17,6 +17,7 @@ const (
 	IntegerLitNode
 	RealLitNode
 	StringLitNode
+	BooleanLitNode
 	CompoundNode
 	AssignNode
 	VarNode
@@ -29,12 +30,14 @@ const (
 	ParamNode
 	ProcedureCallNode
 	WriteStatementNode
+	IfStatementNode
 )
 
 var nodeTypeNames = map[NodeType]string{
 	BinOpNode:          "BinOp",
 	UnaryOpNode:        "UnaryOp",
 	IntegerLitNode:     "IntegerLit",
+	BooleanLitNode:     "BooleanLit",
 	RealLitNode:        "RealLit",
 	StringLitNode:      "StringLit",
 	CompoundNode:       "Compound",
@@ -49,6 +52,7 @@ var nodeTypeNames = map[NodeType]string{
 	ParamNode:          "Param",
 	ProcedureCallNode:  "ProcedureCall",
 	WriteStatementNode: "WriteStatement",
+	IfStatementNode:    "IfStatement",
 }
 
 func (nt NodeType) Type() NodeType {
@@ -249,6 +253,20 @@ func NewStringLit(token tokens.Token) *StringLit {
 	}
 }
 
+type BooleanLit struct {
+	NodeType
+	Token tokens.Token
+	Value bool
+}
+
+func NewBooleanLit(token tokens.Token) *BooleanLit {
+	return &BooleanLit{
+		NodeType: BooleanLitNode,
+		Token:    token,
+		Value:    token.Value.(bool),
+	}
+}
+
 type ProcedureDecl struct {
 	NodeType
 	ProcName string
@@ -309,5 +327,23 @@ func NewWriteStatement(newLine bool, exprs []Node, token tokens.Token) *WriteSta
 		NewLine:  newLine,
 		Exprs:    exprs,
 		Token:    token,
+	}
+}
+
+type IfStatement struct {
+	NodeType
+	Condition   Node
+	Statement   Node
+	Alternative Node
+	Token       tokens.Token
+}
+
+func NewIfStatement(condition Node, statement Node, alternative Node, token tokens.Token) *IfStatement {
+	return &IfStatement{
+		Condition:   condition,
+		NodeType:    IfStatementNode,
+		Statement:   statement,
+		Alternative: alternative,
+		Token:       token,
 	}
 }

@@ -58,6 +58,9 @@ func (i *Interpreter) visit(node ir.Node) (Object, error) {
 	case *ir.StringLit:
 		return i.visitStringLit(node)
 
+	case *ir.BooleanLit:
+		return i.visitBooleanLit(node)
+
 	case *ir.UnaryOp:
 		return i.visitUnaryOp(node)
 
@@ -94,6 +97,9 @@ func (i *Interpreter) visit(node ir.Node) (Object, error) {
 	case *ir.WriteStatement:
 		return i.visitWriteStatement(node)
 
+	case *ir.IfStatement:
+		return i.visitIfStatement(node)
+
 	default:
 		return nil, fmt.Errorf("no visit method for %T", node)
 	}
@@ -116,6 +122,89 @@ func (i *Interpreter) visitProgram(node *ir.Program) (Object, error) {
 	return nil, nil
 }
 
+func toFloat(obj Object) (float64, error) {
+	switch value := obj.(type) {
+	case IntegerObject:
+		return float64(value.Value), nil
+
+	case RealObject:
+		return value.Value, nil
+
+	default:
+		return 0, fmt.Errorf("Cannot convert %T to float", obj)
+	}
+}
+
+func compareObject(op tokens.TokenType, left, right Object) (BooleanObject, bool) {
+	switch {
+	case left.Type() == INTEGER_OBJ && right.Type() == INTEGER_OBJ:
+		leftValue := left.(IntegerObject).Value
+		rightValue := right.(IntegerObject).Value
+
+		switch op {
+		case tokens.EQUAL:
+			return BooleanObject{Value: leftValue == rightValue}, true
+		case tokens.NOT_EQUAL:
+			return BooleanObject{Value: leftValue != rightValue}, true
+		case tokens.LESS_THAN:
+			return BooleanObject{Value: leftValue < rightValue}, true
+		case tokens.LESS_THAN_EQUAL:
+			return BooleanObject{Value: leftValue <= rightValue}, true
+		case tokens.GREATER_THAN:
+			return BooleanObject{Value: leftValue > rightValue}, true
+		case tokens.GREATER_THAN_EQUAL:
+			return BooleanObject{Value: leftValue >= rightValue}, true
+		}
+
+	case left.Type() == REAL_OBJ || right.Type() == REAL_OBJ:
+		leftValue, err := toFloat(left)
+		if err != nil {
+			return BooleanObject{}, false
+		}
+
+		rightValue, err := toFloat(right)
+		if err != nil {
+			return BooleanObject{}, false
+		}
+
+		switch op {
+		case tokens.EQUAL:
+			return BooleanObject{Value: leftValue == rightValue}, true
+		case tokens.NOT_EQUAL:
+			return BooleanObject{Value: leftValue != rightValue}, true
+		case tokens.LESS_THAN:
+			return BooleanObject{Value: leftValue < rightValue}, true
+		case tokens.LESS_THAN_EQUAL:
+			return BooleanObject{Value: leftValue <= rightValue}, true
+		case tokens.GREATER_THAN:
+			return BooleanObject{Value: leftValue > rightValue}, true
+		case tokens.GREATER_THAN_EQUAL:
+			return BooleanObject{Value: leftValue >= rightValue}, true
+		}
+
+	case left.Type() == STRING_OBJ && right.Type() == STRING_OBJ:
+		leftValue := left.(StringObject).Value
+		rightValue := right.(StringObject).Value
+
+		switch op {
+		case tokens.EQUAL:
+			return BooleanObject{Value: leftValue == rightValue}, true
+		case tokens.NOT_EQUAL:
+			return BooleanObject{Value: leftValue != rightValue}, true
+		case tokens.LESS_THAN:
+			return BooleanObject{Value: leftValue < rightValue}, true
+		case tokens.LESS_THAN_EQUAL:
+			return BooleanObject{Value: leftValue <= rightValue}, true
+		case tokens.GREATER_THAN:
+			return BooleanObject{Value: leftValue > rightValue}, true
+		case tokens.GREATER_THAN_EQUAL:
+			return BooleanObject{Value: leftValue >= rightValue}, true
+		}
+	}
+
+	return BooleanObject{}, false
+}
+
 func (i *Interpreter) visitBinOp(node *ir.BinOp) (Object, error) {
 	left, err := i.visit(node.Left)
 	if err != nil {
@@ -127,9 +216,20 @@ func (i *Interpreter) visitBinOp(node *ir.BinOp) (Object, error) {
 		return nil, err
 	}
 
-	if left.Type() == REAL_OBJ && right.Type() == REAL_OBJ {
-		leftValue := left.(RealObject).Value
-		rightValue := right.(RealObject).Value
+	if result, ok := compareObject(node.Op.Type, left, right); ok {
+		return result, nil
+	}
+
+	if left.Type() == REAL_OBJ || right.Type() == REAL_OBJ {
+		leftValue, err := toFloat(left)
+		if err != nil {
+			return nil, err
+		}
+
+		rightValue, err := toFloat(right)
+		if err != nil {
+			return nil, err
+		}
 
 		switch node.Op.Type {
 		case tokens.PLUS:
@@ -145,13 +245,12 @@ func (i *Interpreter) visitBinOp(node *ir.BinOp) (Object, error) {
 			if rightValue == 0 {
 				return nil, i.error(errors.DivideByZero, node.Token)
 			}
+
 			return RealObject{Value: leftValue / rightValue}, nil
-
-		default:
-			return nil, fmt.Errorf("Unknown binary operator: %s", node.Op.Type.String())
 		}
-	} else if left.Type() == INTEGER_OBJ && right.Type() == INTEGER_OBJ {
+	}
 
+	if left.Type() == INTEGER_OBJ && right.Type() == INTEGER_OBJ {
 		leftValue := left.(IntegerObject).Value
 		rightValue := right.(IntegerObject).Value
 
@@ -169,6 +268,7 @@ func (i *Interpreter) visitBinOp(node *ir.BinOp) (Object, error) {
 			if rightValue == 0 {
 				return nil, i.error(errors.DivideByZero, node.Token)
 			}
+
 			return IntegerObject{Value: leftValue / rightValue}, nil
 
 		case tokens.FLOAT_DIV:
@@ -176,26 +276,27 @@ func (i *Interpreter) visitBinOp(node *ir.BinOp) (Object, error) {
 				return nil, i.error(errors.DivideByZero, node.Token)
 			}
 
-			return RealObject{Value: float64(leftValue) / float64(rightValue)}, nil
-
-		default:
-			return nil, fmt.Errorf("Unknown binary operator: %s", node.Op.Type.String())
-		}
-	} else if left.Type() == STRING_OBJ && right.Type() == STRING_OBJ {
-
-		leftValue := left.(StringObject).Value
-		rightValue := right.(StringObject).Value
-
-		switch node.Op.Type {
-		case tokens.PLUS:
-			return StringObject{Value: leftValue + rightValue}, nil
-
-		default:
-			return nil, fmt.Errorf("Unknown binary operator: %s", node.Op.Type.String())
+			return RealObject{
+				Value: float64(leftValue) / float64(rightValue),
+			}, nil
 		}
 	}
 
-	return nil, fmt.Errorf("Invalid binary operation: %s %s %s", left.Type(), node.Op.Type.String(), right.Type())
+	if left.Type() == STRING_OBJ && right.Type() == STRING_OBJ {
+		leftValue := left.(StringObject).Value
+		rightValue := right.(StringObject).Value
+
+		if node.Op.Type == tokens.PLUS {
+			return StringObject{Value: leftValue + rightValue}, nil
+		}
+	}
+
+	return nil, fmt.Errorf(
+		"Invalid binary operation: %s %s %s",
+		left.Type(),
+		node.Op.Type.String(),
+		right.Type(),
+	)
 }
 
 func (i *Interpreter) visitIntegerLit(node *ir.IntegerLit) (Object, error) {
@@ -208,6 +309,10 @@ func (i *Interpreter) visitRealLit(node *ir.RealLit) (Object, error) {
 
 func (i *Interpreter) visitStringLit(node *ir.StringLit) (Object, error) {
 	return StringObject{Value: node.Value}, nil
+}
+
+func (i *Interpreter) visitBooleanLit(node *ir.BooleanLit) (Object, error) {
+	return BooleanObject{Value: node.Value}, nil
 }
 
 func (i *Interpreter) visitUnaryOp(node *ir.UnaryOp) (Object, error) {
@@ -350,6 +455,26 @@ func (i *Interpreter) visitWriteStatement(node *ir.WriteStatement) (Object, erro
 
 	if node.NewLine {
 		fmt.Println()
+	}
+
+	return nil, nil
+}
+
+func (i *Interpreter) visitIfStatement(node *ir.IfStatement) (Object, error) {
+	condition, err := i.visit(node.Condition)
+	if err != nil {
+		return nil, err
+	}
+
+	boolCondition, ok := condition.(BooleanObject)
+	if !ok {
+		return nil, fmt.Errorf("Condition must be a boolean expression, got %T", condition)
+	}
+
+	if boolCondition.Value {
+		i.visit(node.Statement)
+	} else if node.Alternative != nil {
+		i.visit(node.Alternative)
 	}
 
 	return nil, nil

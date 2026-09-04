@@ -26,7 +26,7 @@ formalParamsList : formalParameters
 
 formalParameters : ID (COMMA ID)* COLON type_spec
 
-typeSpec : INTEGER | REAL | STRING
+typeSpec : INTEGER | REAL | STRING | BOOLEAN
 
 compoundStatement : BEGIN statementList END
 
@@ -45,9 +45,15 @@ procCallStatement : ID LPAREN (expr (COMMA expr)*)? RPAREN
 
 assignmentStatement : variable ASSIGN expr
 
+ifStatement : IF expr THEN statement (ELSE statement)?
+
 empty :
 
-expr : term ((PLUS | MINUS) term)*
+expr: artihmeticExpr (relationalOperator arithmeticExpr)?
+
+relOp : EQUAL | NOT_EQUAL | LESS_THAN | LESS_THAN_EQUAL | GREATER_THAN | GREATER_THAN_EQUAL
+
+arithmeticExpr : term ((PLUS | MINUS) term)*
 
 term : factor ((MUL | INTEGER_DIV | FLOAT_DIV) factor)*
 
@@ -55,7 +61,9 @@ factor : PLUS factor
        | MINUS factor
        | INTEGER_LIT
        | REAL_LIT
-			 | STRING_LIT
+       | STRING_LIT
+       | TRUE
+       | FALSE
        | LPAREN expr RPAREN
        | variable
 
@@ -347,14 +355,22 @@ func (p *Parser) typeSpec() (*ir.Type, error) {
 		if err := p.eat(tokens.INTEGER); err != nil {
 			return nil, err
 		}
+
 	case tokens.REAL:
 		if err := p.eat(tokens.REAL); err != nil {
 			return nil, err
 		}
+
 	case tokens.STRING:
 		if err := p.eat(tokens.STRING); err != nil {
 			return nil, err
 		}
+
+	case tokens.BOOLEAN:
+		if err := p.eat(tokens.BOOLEAN); err != nil {
+			return nil, err
+		}
+
 	default:
 		return nil, p.error(errors.UnexpectedToken)
 	}
@@ -427,9 +443,48 @@ func (p *Parser) statement() (ir.Node, error) {
 	case tokens.WRITE:
 		return p.writeStatement()
 
+	case tokens.IF:
+		return p.ifStatement()
+
 	default:
 		return p.empty()
 	}
+}
+
+func (p *Parser) ifStatement() (*ir.IfStatement, error) {
+
+	if err := p.eat(tokens.IF); err != nil {
+		return nil, err
+	}
+
+	condition, err := p.expr()
+	if err != nil {
+		return nil, err
+	}
+
+	if err := p.eat(tokens.THEN); err != nil {
+		return nil, err
+	}
+
+	statementNode, err := p.statement()
+	if err != nil {
+		return nil, err
+	}
+
+	if p.currentToken.Type == tokens.ELSE {
+		if err := p.eat(tokens.ELSE); err != nil {
+			return nil, err
+		}
+
+		alternativeNode, err := p.statement()
+		if err != nil {
+			return nil, err
+		}
+
+		return ir.NewIfStatement(condition, statementNode, alternativeNode, p.currentToken), nil
+	}
+
+	return ir.NewIfStatement(condition, statementNode, nil, p.currentToken), nil
 }
 
 func (p *Parser) writeStatement() (*ir.WriteStatement, error) {
@@ -586,7 +641,6 @@ func (p *Parser) factor() (ir.Node, error) {
 		}
 
 		expr, err := p.factor()
-		fmt.Println(expr.Type().String())
 		if err != nil {
 			return nil, err
 		}
@@ -630,6 +684,13 @@ func (p *Parser) factor() (ir.Node, error) {
 
 		return ir.NewStringLit(token), nil
 
+	case tokens.TRUE:
+		if err := p.eat(tokens.TRUE); err != nil {
+			return nil, err
+		}
+
+		return ir.NewBooleanLit(token), nil
+
 	default:
 		return p.variable()
 	}
@@ -672,7 +733,7 @@ func (p *Parser) term() (ir.Node, error) {
 	return node, nil
 }
 
-func (p *Parser) expr() (ir.Node, error) {
+func (p *Parser) arithmeticExpr() (ir.Node, error) {
 	node, err := p.term()
 	if err != nil {
 		return nil, err
@@ -702,4 +763,31 @@ func (p *Parser) expr() (ir.Node, error) {
 	}
 
 	return node, nil
+}
+
+func (p *Parser) expr() (ir.Node, error) {
+	node, err := p.arithmeticExpr()
+	if err != nil {
+		return nil, err
+	}
+
+	if isRelOp(p.currentToken.Type) {
+		token := p.currentToken
+		if err := p.eat(token.Type); err != nil {
+			return nil, err
+		}
+
+		right, err := p.arithmeticExpr()
+		if err != nil {
+			return nil, err
+		}
+
+		node = ir.NewBinOp(node, token, right)
+	}
+
+	return node, nil
+}
+
+func isRelOp(tokenType tokens.TokenType) bool {
+	return tokenType == tokens.EQUAL || tokenType == tokens.NOT_EQUAL || tokenType == tokens.LESS_THAN || tokenType == tokens.LESS_THAN_EQUAL || tokenType == tokens.GREATER_THAN || tokenType == tokens.GREATER_THAN_EQUAL
 }

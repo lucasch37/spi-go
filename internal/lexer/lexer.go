@@ -140,7 +140,15 @@ func (l *Lexer) id() tokens.Token {
 
 	if resToken, exists := tokens.ReservedKeywords[strings.ToUpper(result)]; exists {
 		token.Type = resToken.Type
-		token.Value = resToken.Value
+
+		switch token.Type {
+		case tokens.TRUE:
+			token.Value = true
+		case tokens.FALSE:
+			token.Value = false
+		default:
+			token.Value = resToken.Value
+		}
 		return token
 	}
 
@@ -195,14 +203,17 @@ func (l *Lexer) GetNextToken() (tokens.Token, error) {
 		}
 
 		if l.CurrentChar == ':' && l.peek() == '=' {
-			l.advance()
-			l.advance()
-			return tokens.Token{
+			token := tokens.Token{
 				Type:   tokens.ASSIGN,
 				Value:  ":=",
 				LineNo: l.lineNo,
 				Column: l.column,
-			}, nil
+			}
+
+			l.advance()
+			l.advance()
+
+			return token, nil
 		}
 
 		if l.CurrentChar == '{' {
@@ -211,6 +222,48 @@ func (l *Lexer) GetNextToken() (tokens.Token, error) {
 				return tokens.Token{}, err
 			}
 			continue
+		}
+
+		if l.CurrentChar == '<' && l.peek() == '=' {
+			token := tokens.Token{
+				Type:   tokens.LESS_THAN_EQUAL,
+				Value:  "<=",
+				LineNo: l.lineNo,
+				Column: l.column,
+			}
+
+			l.advance()
+			l.advance()
+
+			return token, nil
+		}
+
+		if l.CurrentChar == '<' && l.peek() == '>' {
+			token := tokens.Token{
+				Type:   tokens.NOT_EQUAL,
+				Value:  "<>",
+				LineNo: l.lineNo,
+				Column: l.column,
+			}
+
+			l.advance()
+			l.advance()
+
+			return token, nil
+		}
+
+		if l.CurrentChar == '>' && l.peek() == '=' {
+			token := tokens.Token{
+				Type:   tokens.GREATER_THAN_EQUAL,
+				Value:  ">=",
+				LineNo: l.lineNo,
+				Column: l.column,
+			}
+
+			l.advance()
+			l.advance()
+
+			return token, nil
 		}
 
 		tokenType, ok := tokens.TokenTypeFromName(l.CurrentChar)

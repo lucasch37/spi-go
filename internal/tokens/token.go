@@ -16,6 +16,9 @@ const (
 	DOT
 	COLON
 	COMMA
+	GREATER_THAN
+	LESS_THAN
+	EQUAL
 
 	// keywords block
 	PROGRAM
@@ -27,6 +30,12 @@ const (
 	PROCEDURE
 	WRITE
 	WRITELN
+	TRUE
+	FALSE
+	BOOLEAN
+	IF
+	THEN
+	ELSE
 	BEGIN
 	END
 
@@ -37,6 +46,9 @@ const (
 	STRING_LIT
 	ASSIGN
 	EOF
+	LESS_THAN_EQUAL
+	GREATER_THAN_EQUAL
+	NOT_EQUAL
 )
 
 var tokenTypeNames = [...]string{
@@ -50,6 +62,9 @@ var tokenTypeNames = [...]string{
 	".",
 	":",
 	",",
+	">",
+	"<",
+	"=",
 
 	"PROGRAM",
 	"INTEGER",
@@ -60,6 +75,12 @@ var tokenTypeNames = [...]string{
 	"PROCEDURE",
 	"WRITE",
 	"WRITELN",
+	"TRUE",
+	"FALSE",
+	"BOOLEAN",
+	"IF",
+	"THEN",
+	"ELSE",
 	"BEGIN",
 	"END",
 
@@ -69,6 +90,9 @@ var tokenTypeNames = [...]string{
 	"STRING_LIT",
 	"ASSIGN",
 	"EOF",
+	"<=",
+	">=",
+	"<>",
 }
 
 func (t TokenType) String() string {

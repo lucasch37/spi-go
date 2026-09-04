@@ -1,21 +1,15 @@
-PROGRAM HelloWorld;
-VAR
-   a, b : INTEGER;
-   c    : REAL;
-   x, y : STRING;
+program helloworld;
+var
+   x, y : string;
 
-PROCEDURE Print(x : String);
-   BEGIN
-      WriteLn(x)
-   END;
+procedure foo(x : string);
+   begin
+      writeln(x);
+   end;
 
-BEGIN
-   a := 5;
-   b := a;
-   c := 1.2;
-
+begin
    x := 'Hello';
    y := 'World';
 
-   Print(x + ', ' + y + '!')
-END.
+   foo(x + ', ' + y + '!')
+end.

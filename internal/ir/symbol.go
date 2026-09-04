@@ -122,6 +122,7 @@ func (st *SymbolTable) InitBuiltins() {
 	st.Insert(NewBuiltinTypeSymbol("INTEGER"))
 	st.Insert(NewBuiltinTypeSymbol("REAL"))
 	st.Insert(NewBuiltinTypeSymbol("STRING"))
+	st.Insert(NewBuiltinTypeSymbol("BOOLEAN"))
 }
 
 func (st *SymbolTable) String() string {
