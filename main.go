@@ -5,10 +5,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/lucasch37/spi-go/internal/interpreter"
-	"github.com/lucasch37/spi-go/internal/lexer"
-	"github.com/lucasch37/spi-go/internal/parser"
-	"github.com/lucasch37/spi-go/internal/semantic"
+	"github.com/lucasch37/nsspi/internal/interpreter"
+	"github.com/lucasch37/nsspi/internal/lexer"
+	"github.com/lucasch37/nsspi/internal/parser"
+	"github.com/lucasch37/nsspi/internal/semantic"
 )
 
 func main() {

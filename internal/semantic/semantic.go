@@ -3,9 +3,9 @@ package semantic
 import (
 	"fmt"
 
-	"github.com/lucasch37/spi-go/internal/errors"
-	"github.com/lucasch37/spi-go/internal/ir"
-	"github.com/lucasch37/spi-go/internal/tokens"
+	"github.com/lucasch37/nsspi/internal/errors"
+	"github.com/lucasch37/nsspi/internal/ir"
+	"github.com/lucasch37/nsspi/internal/tokens"
 )
 
 type SemanticAnalyzer struct {
@@ -152,6 +152,25 @@ func (sa *SemanticAnalyzer) visitBinOp(node *ir.BinOp) (ir.DataType, error) {
 	case tokens.MINUS, tokens.MUL, tokens.FLOAT_DIV:
 		if !isNumeric(leftType) || !isNumeric(rightType) {
 			return ir.NoType, sa.error(errors.TypeMismatch, node.Token)
+		}
+
+		if leftType == ir.RealType || rightType == ir.RealType {
+			return ir.RealType, nil
+		}
+
+		return ir.IntegerType, nil
+
+	case tokens.PLUS:
+		if leftType == ir.BooleanType || rightType == ir.BooleanType {
+			return ir.NoType, sa.error(errors.TypeMismatch, node.Token)
+		}
+
+		if leftType == ir.StringType || rightType == ir.StringType {
+			if leftType != rightType {
+				return ir.NoType, sa.error(errors.TypeMismatch, node.Token)
+			}
+
+			return ir.StringType, nil
 		}
 
 		if leftType == ir.RealType || rightType == ir.RealType {

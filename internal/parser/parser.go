@@ -3,10 +3,10 @@ package parser
 import (
 	"fmt"
 
-	"github.com/lucasch37/spi-go/internal/errors"
-	"github.com/lucasch37/spi-go/internal/ir"
-	"github.com/lucasch37/spi-go/internal/lexer"
-	"github.com/lucasch37/spi-go/internal/tokens"
+	"github.com/lucasch37/nsspi/internal/errors"
+	"github.com/lucasch37/nsspi/internal/ir"
+	"github.com/lucasch37/nsspi/internal/lexer"
+	"github.com/lucasch37/nsspi/internal/tokens"
 )
 
 /*

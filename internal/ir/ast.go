@@ -1,7 +1,7 @@
 package ir
 
 import (
-	"github.com/lucasch37/spi-go/internal/tokens"
+	"github.com/lucasch37/nsspi/internal/tokens"
 )
 
 type Node interface {
