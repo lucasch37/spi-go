@@ -22,6 +22,14 @@ func NewSemanticAnalyzer(shouldLogScope bool) *SemanticAnalyzer {
 	return sa
 }
 
+func (sa *SemanticAnalyzer) Analyze(tree ir.Node) error {
+	if _, err := sa.visit(tree); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (sa *SemanticAnalyzer) error(code errors.ErrorCode, token tokens.Token) error {
 	return errors.NewSemanticError(code, token, fmt.Sprintf("%s -> %s", code.String(), token.String()))
 }
@@ -32,7 +40,7 @@ func (sa *SemanticAnalyzer) log(msg string) {
 	}
 }
 
-func (sa *SemanticAnalyzer) Visit(node ir.Node) error {
+func (sa *SemanticAnalyzer) visit(node ir.Node) (ir.DataType, error) {
 	switch node := node.(type) {
 	case *ir.Program:
 		return sa.visitProgram(node)
@@ -42,48 +50,43 @@ func (sa *SemanticAnalyzer) Visit(node ir.Node) error {
 
 	case *ir.Block:
 		for _, decl := range node.Declarations {
-			if err := sa.Visit(decl); err != nil {
-				return err
+			if _, err := sa.visit(decl); err != nil {
+				return ir.NoType, err
 			}
 		}
-		if err := sa.Visit(node.CompoundStatement); err != nil {
-			return err
+		if _, err := sa.visit(node.CompoundStatement); err != nil {
+			return ir.NoType, err
 		}
 
 	case *ir.BinOp:
-		if err := sa.Visit(node.Left); err != nil {
-			return err
-		}
-
-		if err := sa.Visit(node.Right); err != nil {
-			return err
-		}
+		return sa.visitBinOp(node)
 
 	case *ir.IntegerLit:
+		return ir.IntegerType, nil
+
 	case *ir.RealLit:
+		return ir.RealType, nil
+
 	case *ir.StringLit:
+		return ir.StringType, nil
+
 	case *ir.BooleanLit:
+		return ir.BooleanType, nil
 
 	case *ir.UnaryOp:
-		if node.Expr.Type() != ir.IntegerLitNode && node.Expr.Type() != ir.RealLitNode {
-			switch node.Expr.(type) {
-			case *ir.StringLit:
-				return sa.error(errors.InvalidOperand, node.Expr.(*ir.StringLit).Token)
-			case *ir.BooleanLit:
-				return sa.error(errors.InvalidOperand, node.Expr.(*ir.BooleanLit).Token)
-			case *ir.Var:
-				return sa.error(errors.InvalidOperand, node.Expr.(*ir.Var).Token)
-			}
+		exprType, err := sa.visit(node.Expr)
+		if err != nil {
+			return ir.NoType, err
 		}
 
-		if err := sa.Visit(node.Expr); err != nil {
-			return err
+		if exprType != ir.IntegerType && exprType != ir.RealType {
+			return ir.NoType, sa.error(errors.InvalidOperand, node.Token)
 		}
 
 	case *ir.Compound:
 		for _, node := range node.Children {
-			if err := sa.Visit(node); err != nil {
-				return err
+			if _, err := sa.visit(node); err != nil {
+				return ir.NoType, err
 			}
 		}
 
@@ -103,42 +106,88 @@ func (sa *SemanticAnalyzer) Visit(node ir.Node) error {
 
 	case *ir.WriteStatement:
 		for _, node := range node.Exprs {
-			if err := sa.Visit(node); err != nil {
-				return err
+			if _, err := sa.visit(node); err != nil {
+				return ir.NoType, err
 			}
 		}
 
 	case *ir.IfStatement:
-		if err := sa.Visit(node.Condition); err != nil {
-			return err
+		if _, err := sa.visit(node.Condition); err != nil {
+			return ir.NoType, err
 		}
 
-		if err := sa.Visit(node.Statement); err != nil {
-			return err
+		if _, err := sa.visit(node.Statement); err != nil {
+			return ir.NoType, err
 		}
 
 		if node.Alternative != nil {
-			if err := sa.Visit(node.Alternative); err != nil {
-				return err
+			if _, err := sa.visit(node.Alternative); err != nil {
+				return ir.NoType, err
 			}
 		}
 
 	default:
-		return fmt.Errorf("no visit method for %T", node)
+		return ir.NoType, fmt.Errorf("no visit method for %T", node)
 	}
 
-	return nil
+	return ir.NoType, nil
 }
 
-func (sa *SemanticAnalyzer) visitProgram(node *ir.Program) error {
+func isNumeric(t ir.DataType) bool {
+	return t == ir.IntegerType || t == ir.RealType
+}
+
+func (sa *SemanticAnalyzer) visitBinOp(node *ir.BinOp) (ir.DataType, error) {
+	leftType, err := sa.visit(node.Left)
+	if err != nil {
+		return ir.NoType, err
+	}
+
+	rightType, err := sa.visit(node.Right)
+	if err != nil {
+		return ir.NoType, err
+	}
+
+	switch node.Op.Type {
+	case tokens.MINUS, tokens.MUL, tokens.FLOAT_DIV:
+		if !isNumeric(leftType) || !isNumeric(rightType) {
+			return ir.NoType, sa.error(errors.TypeMismatch, node.Token)
+		}
+
+		if leftType == ir.RealType || rightType == ir.RealType {
+			return ir.RealType, nil
+		}
+
+		return ir.IntegerType, nil
+
+	case tokens.INTEGER_DIV:
+		if leftType != ir.IntegerType || rightType != ir.IntegerType {
+			return ir.NoType, sa.error(errors.TypeMismatch, node.Token)
+		}
+
+		return ir.IntegerType, nil
+
+	case tokens.EQUAL, tokens.NOT_EQUAL, tokens.LESS_THAN, tokens.LESS_THAN_EQUAL, tokens.GREATER_THAN, tokens.GREATER_THAN_EQUAL:
+		if leftType != rightType {
+			return ir.NoType, sa.error(errors.TypeMismatch, node.Token)
+		}
+
+		return ir.BooleanType, nil
+
+	default:
+		return ir.NoType, sa.error(errors.InvalidOperand, node.Token)
+	}
+}
+
+func (sa *SemanticAnalyzer) visitProgram(node *ir.Program) (ir.DataType, error) {
 	sa.log("ENTER scope: global")
 
 	globalScope := ir.NewSymbolTable("global", 1, sa.CurrentScope, sa.ShouldLogScope)
 	globalScope.InitBuiltins()
 	sa.CurrentScope = globalScope
 
-	if err := sa.Visit(node.Block); err != nil {
-		return err
+	if _, err := sa.visit(node.Block); err != nil {
+		return ir.NoType, err
 	}
 
 	sa.log(globalScope.String())
@@ -146,10 +195,10 @@ func (sa *SemanticAnalyzer) visitProgram(node *ir.Program) error {
 	sa.CurrentScope = sa.CurrentScope.EnclosingScope
 	sa.log("LEAVE scope: global")
 
-	return nil
+	return ir.NoType, nil
 }
 
-func (sa *SemanticAnalyzer) visitProcedureDecl(node *ir.ProcedureDecl) error {
+func (sa *SemanticAnalyzer) visitProcedureDecl(node *ir.ProcedureDecl) (ir.DataType, error) {
 	procName := node.ProcName
 	procSymbol := ir.NewProcedureSymbol(procName, make([]*ir.VarSymbol, 0))
 	sa.CurrentScope.Insert(procSymbol)
@@ -159,7 +208,13 @@ func (sa *SemanticAnalyzer) visitProcedureDecl(node *ir.ProcedureDecl) error {
 	sa.CurrentScope = procScope
 
 	for _, param := range node.Params {
-		paramType := sa.CurrentScope.Lookup(param.TypeNode.Value, false)
+		symbol := sa.CurrentScope.Lookup(param.TypeNode.Value, false)
+
+		paramType, ok := symbol.(*ir.BuiltinTypeSymbol)
+		if !ok {
+			return ir.NoType, sa.error(errors.InvalidType, param.TypeNode.Token)
+		}
+
 		paramName := param.VarNode.Value
 		varSymbol := ir.NewVarSymbol(paramName, paramType)
 
@@ -167,8 +222,8 @@ func (sa *SemanticAnalyzer) visitProcedureDecl(node *ir.ProcedureDecl) error {
 		procSymbol.Params = append(procSymbol.Params, varSymbol)
 	}
 
-	if err := sa.Visit(node.Block); err != nil {
-		return err
+	if _, err := sa.visit(node.Block); err != nil {
+		return ir.NoType, err
 	}
 
 	sa.log(procScope.String())
@@ -178,73 +233,95 @@ func (sa *SemanticAnalyzer) visitProcedureDecl(node *ir.ProcedureDecl) error {
 
 	procSymbol.BlockNode = node.Block
 
-	return nil
+	return ir.NoType, nil
 }
 
-func (sa *SemanticAnalyzer) visitVarDecl(node *ir.VarDecl) error {
+func (sa *SemanticAnalyzer) visitVarDecl(node *ir.VarDecl) (ir.DataType, error) {
 	typeName := node.TypeNode.Value
-	typeSymbol := sa.CurrentScope.Lookup(typeName, false)
+	symbol := sa.CurrentScope.Lookup(typeName, false)
+
+	typeSymbol, ok := symbol.(*ir.BuiltinTypeSymbol)
+	if !ok {
+		return ir.NoType, sa.error(errors.InvalidType, node.TypeNode.Token)
+	}
+
 	varName := node.VarNode.Value
 	varSymbol := ir.NewVarSymbol(varName, typeSymbol)
 
 	if sa.CurrentScope.Lookup(varName, true) != nil {
-		return sa.error(errors.DuplicateID, node.VarNode.Token)
+		return ir.NoType, sa.error(errors.DuplicateID, node.VarNode.Token)
 	}
 
 	sa.CurrentScope.Insert(varSymbol)
 
-	return nil
+	return ir.NoType, nil
 }
 
-func (sa *SemanticAnalyzer) visitAssign(node *ir.Assign) error {
-	if err := sa.Visit(node.Right); err != nil {
-		return err
+func (sa *SemanticAnalyzer) visitAssign(node *ir.Assign) (ir.DataType, error) {
+	leftType, err := sa.visit(node.Right)
+	if err != nil {
+		return ir.NoType, err
 	}
 
-	if err := sa.Visit(node.Left); err != nil {
-		return err
+	rightType, err := sa.visit(node.Left)
+	if err != nil {
+		return ir.NoType, err
 	}
 
-	return nil
+	if leftType != rightType {
+		return ir.NoType, sa.error(errors.TypeMismatch, node.Right.SourceToken())
+	}
+
+	return ir.NoType, nil
 }
 
-func (sa *SemanticAnalyzer) visitVar(node *ir.Var) error {
+func (sa *SemanticAnalyzer) visitVar(node *ir.Var) (ir.DataType, error) {
 	varName := node.Value
-	varSymbol := sa.CurrentScope.Lookup(varName, false)
-	if varSymbol == nil {
-		return sa.error(errors.IDNotFound, node.Token)
+	symbol := sa.CurrentScope.Lookup(varName, false)
+	if symbol == nil {
+		return ir.NoType, sa.error(errors.IDNotFound, node.Token)
 	}
 
-	return nil
+	varSymbol, ok := symbol.(*ir.VarSymbol)
+	if !ok {
+		return ir.NoType, sa.error(errors.IDNotFound, node.Token)
+	}
+
+	return varSymbol.TypeSymbol.DataType, nil
 }
 
-func (sa *SemanticAnalyzer) visitProcedureCall(node *ir.ProcedureCall) error {
+func (sa *SemanticAnalyzer) visitProcedureCall(node *ir.ProcedureCall) (ir.DataType, error) {
 	actualParamCount := len(node.ActualParams)
 
 	symbol := sa.CurrentScope.Lookup(node.ProcName, false)
 	if symbol == nil {
-		return sa.error(errors.IDNotFound, node.Token)
+		return ir.NoType, sa.error(errors.IDNotFound, node.Token)
 	}
 
 	procSymbol, ok := symbol.(*ir.ProcedureSymbol)
 
 	if !ok {
-		return sa.error(errors.NotCallable, node.Token)
+		return ir.NoType, sa.error(errors.NotCallable, node.Token)
 	}
 
 	paramCount := len(procSymbol.Params)
 
 	if paramCount != actualParamCount {
-		return sa.error(errors.WrongParamCount, node.Token)
+		return ir.NoType, sa.error(errors.WrongParamCount, node.Token)
 	}
 
 	for _, param := range node.ActualParams {
-		if err := sa.Visit(param); err != nil {
-			return err
+		paramType, err := sa.visit(param)
+		if err != nil {
+			return ir.NoType, err
+		}
+
+		if paramType != procSymbol.Params[0].TypeSymbol.DataType {
+			return ir.NoType, sa.error(errors.TypeMismatch, param.SourceToken())
 		}
 	}
 
 	node.ProcSymbol = procSymbol
 
-	return nil
+	return ir.NoType, nil
 }

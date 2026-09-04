@@ -347,7 +347,7 @@ func (p *Parser) variableDeclaration() ([]*ir.VarDecl, error) {
 	return varDeclarations, nil
 }
 
-func (p *Parser) typeSpec() (*ir.Type, error) {
+func (p *Parser) typeSpec() (*ir.TypeN, error) {
 	token := p.currentToken
 
 	switch p.currentToken.Type {

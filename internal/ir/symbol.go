@@ -5,21 +5,36 @@ import (
 	"strings"
 )
 
+type DataType int
+
+const (
+	NoType DataType = iota
+	IntegerType
+	RealType
+	StringType
+	BooleanType
+)
+
+func (d DataType) Type() DataType {
+	return d
+}
+
 type Symbol interface {
 	Name() string
-	Type() string
 	String() string
 	SetScopeLevel(level int)
 }
 
 type BuiltinTypeSymbol struct {
+	DataType
 	name       string
 	ScopeLevel int
 }
 
-func NewBuiltinTypeSymbol(name string) *BuiltinTypeSymbol {
+func NewBuiltinTypeSymbol(dt DataType, name string) *BuiltinTypeSymbol {
 	return &BuiltinTypeSymbol{
-		name: name,
+		DataType: dt,
+		name:     name,
 	}
 }
 
@@ -32,7 +47,7 @@ func (b *BuiltinTypeSymbol) Name() string {
 }
 
 func (b *BuiltinTypeSymbol) Type() string {
-	return ""
+	return b.name
 }
 
 func (b *BuiltinTypeSymbol) SetScopeLevel(level int) {
@@ -41,27 +56,23 @@ func (b *BuiltinTypeSymbol) SetScopeLevel(level int) {
 
 type VarSymbol struct {
 	name       string
-	typ        Symbol
+	TypeSymbol *BuiltinTypeSymbol
 	ScopeLevel int
 }
 
-func NewVarSymbol(name string, typ Symbol) *VarSymbol {
+func NewVarSymbol(name string, typ *BuiltinTypeSymbol) *VarSymbol {
 	return &VarSymbol{
-		name: name,
-		typ:  typ,
+		name:       name,
+		TypeSymbol: typ,
 	}
 }
 
 func (v *VarSymbol) String() string {
-	return fmt.Sprintf("<VarSymbol(name='%s', type='%s')>", v.name, v.typ.Name())
+	return fmt.Sprintf("<VarSymbol(name='%s', type='%s')>", v.name, v.TypeSymbol.Name())
 }
 
 func (v *VarSymbol) Name() string {
 	return v.name
-}
-
-func (v *VarSymbol) Type() string {
-	return v.typ.Name()
 }
 
 func (v *VarSymbol) SetScopeLevel(level int) {
@@ -90,10 +101,6 @@ func (p *ProcedureSymbol) Name() string {
 	return p.name
 }
 
-func (p *ProcedureSymbol) Type() string {
-	return ""
-}
-
 func (p *ProcedureSymbol) SetScopeLevel(level int) {
 	p.ScopeLevel = level
 }
@@ -119,10 +126,10 @@ func NewSymbolTable(scopeName string, scopeLevel int, enclosingScope *SymbolTabl
 }
 
 func (st *SymbolTable) InitBuiltins() {
-	st.Insert(NewBuiltinTypeSymbol("INTEGER"))
-	st.Insert(NewBuiltinTypeSymbol("REAL"))
-	st.Insert(NewBuiltinTypeSymbol("STRING"))
-	st.Insert(NewBuiltinTypeSymbol("BOOLEAN"))
+	st.Insert(NewBuiltinTypeSymbol(IntegerType, "INTEGER"))
+	st.Insert(NewBuiltinTypeSymbol(RealType, "REAL"))
+	st.Insert(NewBuiltinTypeSymbol(StringType, "STRING"))
+	st.Insert(NewBuiltinTypeSymbol(BooleanType, "BOOLEAN"))
 }
 
 func (st *SymbolTable) String() string {

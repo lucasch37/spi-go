@@ -39,7 +39,7 @@ func run() error {
 	}
 
 	analyzer := semantic.NewSemanticAnalyzer(config.ShouldLogScope)
-	if err := analyzer.Visit(tree); err != nil {
+	if err := analyzer.Analyze(tree); err != nil {
 		return err
 	}
 

@@ -85,7 +85,7 @@ func (i *Interpreter) visit(node ir.Node) (Object, error) {
 	case *ir.VarDecl:
 		return i.visitVarDecl(node)
 
-	case *ir.Type:
+	case *ir.TypeN:
 		return i.visitType(node)
 
 	case *ir.ProcedureDecl:
@@ -391,7 +391,7 @@ func (i *Interpreter) visitVarDecl(node *ir.VarDecl) (Object, error) {
 	return nil, nil
 }
 
-func (i *Interpreter) visitType(node *ir.Type) (Object, error) {
+func (i *Interpreter) visitType(node *ir.TypeN) (Object, error) {
 	return nil, nil
 }
 

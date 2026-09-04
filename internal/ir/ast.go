@@ -7,6 +7,7 @@ import (
 type Node interface {
 	String() string
 	Type() NodeType
+	SourceToken() tokens.Token
 }
 
 type NodeType int
@@ -75,6 +76,10 @@ type BinOp struct {
 	Right Node
 }
 
+func (n *BinOp) SourceToken() tokens.Token {
+	return n.Token
+}
+
 func NewBinOp(left Node, token tokens.Token, right Node) *BinOp {
 	return &BinOp{
 		NodeType: BinOpNode,
@@ -92,6 +97,10 @@ type UnaryOp struct {
 	Expr  Node
 }
 
+func (n *UnaryOp) SourceToken() tokens.Token {
+	return n.Token
+}
+
 func NewUnaryOp(token tokens.Token, expr Node) *UnaryOp {
 	return &UnaryOp{
 		NodeType: UnaryOpNode,
@@ -106,9 +115,13 @@ type Compound struct {
 	Children []Node
 }
 
+func (n *Compound) SourceToken() tokens.Token {
+	return tokens.Token{}
+}
+
 func NewCompound(children []Node) *Compound {
 	return &Compound{
-		NodeType: CompoundNode,
+		NodeType: NodeType(CompoundNode),
 		Children: children,
 	}
 }
@@ -119,6 +132,10 @@ type Assign struct {
 	Token tokens.Token
 	Op    tokens.Token
 	Right Node
+}
+
+func (n *Assign) SourceToken() tokens.Token {
+	return n.Token
 }
 
 func NewAssign(left *Var, token tokens.Token, right Node) *Assign {
@@ -137,6 +154,10 @@ type Var struct {
 	Value string
 }
 
+func (n *Var) SourceToken() tokens.Token {
+	return n.Token
+}
+
 func NewVar(token tokens.Token) *Var {
 	return &Var{
 		NodeType: VarNode,
@@ -149,6 +170,10 @@ type NoOp struct {
 	NodeType
 }
 
+func (n *NoOp) SourceToken() tokens.Token {
+	return tokens.Token{}
+}
+
 func NewNoOp() *NoOp {
 	return &NoOp{
 		NodeType: NoOpNode,
@@ -159,6 +184,10 @@ type Program struct {
 	NodeType
 	Name  string
 	Block *Block
+}
+
+func (n *Program) SourceToken() tokens.Token {
+	return tokens.Token{}
 }
 
 func NewProgram(name string, block *Block) *Program {
@@ -175,6 +204,10 @@ type Block struct {
 	CompoundStatement *Compound
 }
 
+func (n *Block) SourceToken() tokens.Token {
+	return tokens.Token{}
+}
+
 func NewBlock(declarations []Node, compoundStatement *Compound) *Block {
 	return &Block{
 		NodeType:          BlockNode,
@@ -186,10 +219,14 @@ func NewBlock(declarations []Node, compoundStatement *Compound) *Block {
 type VarDecl struct {
 	NodeType
 	VarNode  *Var
-	TypeNode *Type
+	TypeNode *TypeN
 }
 
-func NewVarDecl(varNode *Var, typeNode *Type) *VarDecl {
+func (n *VarDecl) SourceToken() tokens.Token {
+	return n.VarNode.SourceToken()
+}
+
+func NewVarDecl(varNode *Var, typeNode *TypeN) *VarDecl {
 	return &VarDecl{
 		NodeType: NodeType(VarDeclNode),
 		VarNode:  varNode,
@@ -197,14 +234,18 @@ func NewVarDecl(varNode *Var, typeNode *Type) *VarDecl {
 	}
 }
 
-type Type struct {
+type TypeN struct {
 	NodeType
 	Token tokens.Token
 	Value string
 }
 
-func NewType(token tokens.Token) *Type {
-	return &Type{
+func (n *TypeN) SourceToken() tokens.Token {
+	return n.Token
+}
+
+func NewType(token tokens.Token) *TypeN {
+	return &TypeN{
 		NodeType: TypeNode,
 		Token:    token,
 		Value:    token.Value.(string),
@@ -215,6 +256,10 @@ type IntegerLit struct {
 	NodeType
 	Token tokens.Token
 	Value int
+}
+
+func (n *IntegerLit) SourceToken() tokens.Token {
+	return n.Token
 }
 
 func NewIntegerLit(token tokens.Token) *IntegerLit {
@@ -231,6 +276,10 @@ type RealLit struct {
 	Value float64
 }
 
+func (n *RealLit) SourceToken() tokens.Token {
+	return n.Token
+}
+
 func NewRealLit(token tokens.Token) *RealLit {
 	return &RealLit{
 		NodeType: RealLitNode,
@@ -245,6 +294,10 @@ type StringLit struct {
 	Value string
 }
 
+func (n *StringLit) SourceToken() tokens.Token {
+	return n.Token
+}
+
 func NewStringLit(token tokens.Token) *StringLit {
 	return &StringLit{
 		NodeType: StringLitNode,
@@ -257,6 +310,10 @@ type BooleanLit struct {
 	NodeType
 	Token tokens.Token
 	Value bool
+}
+
+func (n *BooleanLit) SourceToken() tokens.Token {
+	return n.Token
 }
 
 func NewBooleanLit(token tokens.Token) *BooleanLit {
@@ -274,6 +331,10 @@ type ProcedureDecl struct {
 	Params   []*Param
 }
 
+func (n *ProcedureDecl) SourceToken() tokens.Token {
+	return tokens.Token{}
+}
+
 func NewProcedureDecl(procName string, block *Block, params []*Param) *ProcedureDecl {
 	return &ProcedureDecl{
 		NodeType: ProcedureDeclNode,
@@ -286,10 +347,14 @@ func NewProcedureDecl(procName string, block *Block, params []*Param) *Procedure
 type Param struct {
 	NodeType
 	VarNode  *Var
-	TypeNode *Type
+	TypeNode *TypeN
 }
 
-func NewParam(varNode *Var, typeNode *Type) *Param {
+func (n *Param) SourceToken() tokens.Token {
+	return n.VarNode.SourceToken()
+}
+
+func NewParam(varNode *Var, typeNode *TypeN) *Param {
 	return &Param{
 		NodeType: ParamNode,
 		VarNode:  varNode,
@@ -303,6 +368,10 @@ type ProcedureCall struct {
 	ActualParams []Node
 	Token        tokens.Token
 	ProcSymbol   *ProcedureSymbol
+}
+
+func (n *ProcedureCall) SourceToken() tokens.Token {
+	return n.Token
 }
 
 func NewProcedureCall(procName string, actualParams []Node, token tokens.Token) *ProcedureCall {
@@ -321,6 +390,10 @@ type WriteStatement struct {
 	Token   tokens.Token
 }
 
+func (n *WriteStatement) SourceToken() tokens.Token {
+	return n.Token
+}
+
 func NewWriteStatement(newLine bool, exprs []Node, token tokens.Token) *WriteStatement {
 	return &WriteStatement{
 		NodeType: WriteStatementNode,
@@ -336,6 +409,10 @@ type IfStatement struct {
 	Statement   Node
 	Alternative Node
 	Token       tokens.Token
+}
+
+func (n *IfStatement) SourceToken() tokens.Token {
+	return n.Token
 }
 
 func NewIfStatement(condition Node, statement Node, alternative Node, token tokens.Token) *IfStatement {
