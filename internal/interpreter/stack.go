@@ -39,7 +39,7 @@ func (cs *CallStack) String() string {
 
 func (cs *CallStack) Lookup(key string) Object {
 	for i := len(cs.Records) - 1; i >= 0; i-- {
-		if obj, exists := cs.Records[i].Members[key]; exists {
+		if obj, exists := cs.Records[i].Members[strings.ToUpper(key)]; exists {
 			return obj
 		}
 	}
@@ -97,9 +97,9 @@ func (ar *ActivationRecord) String() string {
 }
 
 func (ar *ActivationRecord) Set(key string, value Object) {
-	ar.Members[key] = value
+	ar.Members[strings.ToUpper(key)] = value
 }
 
 func (ar *ActivationRecord) Get(key string) Object {
-	return ar.Members[key]
+	return ar.Members[strings.ToUpper(key)]
 }

@@ -220,12 +220,12 @@ func (st *SymbolTable) Insert(symbol Symbol) {
 
 	symbol.SetScopeLevel(st.ScopeLevel)
 
-	st.Symbols[symbol.Name()] = symbol
+	st.Symbols[strings.ToUpper(symbol.Name())] = symbol
 }
 
 func (st *SymbolTable) Lookup(name string, currentScopeOnly bool) Symbol {
 	st.log(fmt.Sprintf("Lookup: %s (scope: %s)", name, st.ScopeName))
-	symbol, exists := st.Symbols[name]
+	symbol, exists := st.Symbols[strings.ToUpper(name)]
 	if exists {
 		return symbol
 	}
