@@ -105,6 +105,48 @@ func (p *ProcedureSymbol) SetScopeLevel(level int) {
 	p.ScopeLevel = level
 }
 
+type FunctionSymbol struct {
+	name           string
+	Params         []*VarSymbol
+	BlockNode      *Block
+	ReturnTypeNode *TypeN
+	ScopeLevel     int
+}
+
+func NewFunctionSymbol(name string, params []*VarSymbol) *FunctionSymbol {
+	return &FunctionSymbol{
+		name:   name,
+		Params: params,
+	}
+}
+
+func (f *FunctionSymbol) String() string {
+	return fmt.Sprintf("<FunctionSymbol(name='%s', params='%v')>", f.name, f.Params)
+}
+
+func (f *FunctionSymbol) Name() string {
+	return f.name
+}
+
+func (f *FunctionSymbol) SetScopeLevel(level int) {
+	f.ScopeLevel = level
+}
+
+func (f *FunctionSymbol) ReturnType() DataType {
+	switch f.ReturnTypeNode.Value {
+	case "INTEGER":
+		return IntegerType
+	case "REAL":
+		return RealType
+	case "STRING":
+		return StringType
+	case "BOOLEAN":
+		return BooleanType
+	default:
+		return NoType
+	}
+}
+
 type SymbolTable struct {
 	Symbols        map[string]Symbol
 	ScopeName      string

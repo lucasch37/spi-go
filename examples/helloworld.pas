@@ -3,9 +3,9 @@ var
    x, y : string;
 
 procedure foo(x : string);
-   begin
-      writeln(x);
-   end;
+begin
+   writeln(x);
+end;
 
 begin
    x := 'Hello';

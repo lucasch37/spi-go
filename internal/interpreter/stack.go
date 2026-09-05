@@ -52,11 +52,13 @@ type ARType int
 const (
 	PROGRAM ARType = iota
 	PROCEDURE
+	FUNCTION
 )
 
 var arTypeNames = [...]string{
 	"PROGRAM",
 	"PROCEDURE",
+	"FUNCTION",
 }
 
 func (art ARType) String() string {

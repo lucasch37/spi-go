@@ -21,7 +21,7 @@ const (
 	BooleanLitNode
 	CompoundNode
 	AssignNode
-	VarNode
+	IdentifierNode
 	NoOpNode
 	ProgramNode
 	BlockNode
@@ -29,7 +29,7 @@ const (
 	TypeNode
 	ProcedureDeclNode
 	ParamNode
-	ProcedureCallNode
+	CallNode
 	WriteStatementNode
 	IfStatementNode
 )
@@ -43,7 +43,7 @@ var nodeTypeNames = map[NodeType]string{
 	StringLitNode:      "StringLit",
 	CompoundNode:       "Compound",
 	AssignNode:         "Assign",
-	VarNode:            "Var",
+	IdentifierNode:     "Identifier",
 	NoOpNode:           "NoOp",
 	ProgramNode:        "Program",
 	BlockNode:          "Block",
@@ -51,7 +51,7 @@ var nodeTypeNames = map[NodeType]string{
 	TypeNode:           "Type",
 	ProcedureDeclNode:  "ProcedureDecl",
 	ParamNode:          "Param",
-	ProcedureCallNode:  "ProcedureCall",
+	CallNode:           "Call",
 	WriteStatementNode: "WriteStatement",
 	IfStatementNode:    "IfStatement",
 }
@@ -128,7 +128,7 @@ func NewCompound(children []Node) *Compound {
 
 type Assign struct {
 	NodeType
-	Left  *Var
+	Left  *Identifier
 	Token tokens.Token
 	Op    tokens.Token
 	Right Node
@@ -138,7 +138,7 @@ func (n *Assign) SourceToken() tokens.Token {
 	return n.Token
 }
 
-func NewAssign(left *Var, token tokens.Token, right Node) *Assign {
+func NewAssign(left *Identifier, token tokens.Token, right Node) *Assign {
 	return &Assign{
 		NodeType: AssignNode,
 		Left:     left,
@@ -148,19 +148,20 @@ func NewAssign(left *Var, token tokens.Token, right Node) *Assign {
 	}
 }
 
-type Var struct {
+type Identifier struct {
 	NodeType
-	Token tokens.Token
-	Value string
+	Token  tokens.Token
+	Value  string
+	Symbol Symbol
 }
 
-func (n *Var) SourceToken() tokens.Token {
+func (n *Identifier) SourceToken() tokens.Token {
 	return n.Token
 }
 
-func NewVar(token tokens.Token) *Var {
-	return &Var{
-		NodeType: VarNode,
+func NewIdentifier(token tokens.Token) *Identifier {
+	return &Identifier{
+		NodeType: IdentifierNode,
 		Token:    token,
 		Value:    token.Value.(string),
 	}
@@ -218,18 +219,18 @@ func NewBlock(declarations []Node, compoundStatement *Compound) *Block {
 
 type VarDecl struct {
 	NodeType
-	VarNode  *Var
+	IdNode   *Identifier
 	TypeNode *TypeN
 }
 
 func (n *VarDecl) SourceToken() tokens.Token {
-	return n.VarNode.SourceToken()
+	return n.IdNode.SourceToken()
 }
 
-func NewVarDecl(varNode *Var, typeNode *TypeN) *VarDecl {
+func NewVarDecl(idNode *Identifier, typeNode *TypeN) *VarDecl {
 	return &VarDecl{
 		NodeType: NodeType(VarDeclNode),
-		VarNode:  varNode,
+		IdNode:   idNode,
 		TypeNode: typeNode,
 	}
 }
@@ -344,40 +345,62 @@ func NewProcedureDecl(procName string, block *Block, params []*Param) *Procedure
 	}
 }
 
+type FunctionDecl struct {
+	NodeType
+	FuncName   string
+	Block      *Block
+	Params     []*Param
+	ReturnType *TypeN
+}
+
+func (f *FunctionDecl) SourceToken() tokens.Token {
+	return tokens.Token{}
+}
+
+func NewFunctionDecl(funcName string, block *Block, params []*Param, returnType *TypeN) *FunctionDecl {
+	return &FunctionDecl{
+		NodeType:   ProcedureDeclNode,
+		FuncName:   funcName,
+		Block:      block,
+		Params:     params,
+		ReturnType: returnType,
+	}
+}
+
 type Param struct {
 	NodeType
-	VarNode  *Var
+	IdNode   *Identifier
 	TypeNode *TypeN
 }
 
 func (n *Param) SourceToken() tokens.Token {
-	return n.VarNode.SourceToken()
+	return n.IdNode.SourceToken()
 }
 
-func NewParam(varNode *Var, typeNode *TypeN) *Param {
+func NewParam(idNode *Identifier, typeNode *TypeN) *Param {
 	return &Param{
 		NodeType: ParamNode,
-		VarNode:  varNode,
+		IdNode:   idNode,
 		TypeNode: typeNode,
 	}
 }
 
-type ProcedureCall struct {
+type Call struct {
 	NodeType
-	ProcName     string
+	CallName     string
 	ActualParams []Node
 	Token        tokens.Token
-	ProcSymbol   *ProcedureSymbol
+	Symbol       Symbol
 }
 
-func (n *ProcedureCall) SourceToken() tokens.Token {
+func (n *Call) SourceToken() tokens.Token {
 	return n.Token
 }
 
-func NewProcedureCall(procName string, actualParams []Node, token tokens.Token) *ProcedureCall {
-	return &ProcedureCall{
-		NodeType:     ProcedureCallNode,
-		ProcName:     procName,
+func NewCall(procName string, actualParams []Node, token tokens.Token) *Call {
+	return &Call{
+		NodeType:     CallNode,
+		CallName:     procName,
 		ActualParams: actualParams,
 		Token:        token,
 	}

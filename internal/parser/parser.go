@@ -12,17 +12,27 @@ import (
 /*
 program : PROGRAM variable SEMI block DOT
 
-block : declarations compound_statement
+block : declarationList compound_statement
 
-declarations : (VAR (variableDeclaration SEMI)+)? procedure_declaration*
+declarationList
+    : declaration declarationList
+    | empty
+
+declaration
+    : VAR variableDeclaration SEMI
+    | procedureDeclaration
+    | functionDeclaration
+    | empty
 
 variableDeclaration : ID (COMMA ID)* COLON type_spec
 
 procedureDeclaration :
      PROCEDURE ID (LPAREN formalParameterList RPAREN)? SEMI block SEMI
 
-formalParamsList : formalParameters
-                   | formalParameters SEMI formalParameterList
+functionDeclaration : FUNCTION ID (LPAREN formalParameterList RPAREN)? COLON type_spec SEMI block SEMI
+
+formalParameterList : formalParameters
+                    | formalParameters SEMI formalParameterList
 
 formalParameters : ID (COMMA ID)* COLON type_spec
 
@@ -31,19 +41,21 @@ typeSpec : INTEGER | REAL | STRING | BOOLEAN
 compoundStatement : BEGIN statementList END
 
 statementList : statement
-               | statement SEMI statementList
+              | statement SEMI statementList
 
 statement : compoundStatement
-          | proccallStatement
+          | callStatement
           | assignmentStatement
           | writeStatement
           | empty
 
-writeStatement : (WRITE | WRITELN) LPAREN (expr (COMMA expr)*)? RPAREN
+callStatement : call
 
-procCallStatement : ID LPAREN (expr (COMMA expr)*)? RPAREN
+call : ID LPAREN (expr (COMMA expr)*)? RPAREN
 
-assignmentStatement : variable ASSIGN expr
+writeStatement : (WRITE | WRITELN) (LPAREN (expr (COMMA expr)*)? RPAREN)?
+
+assignmentStatement : identifier ASSIGN expr
 
 ifStatement : IF expr THEN statement (ELSE statement)?
 
@@ -65,14 +77,16 @@ factor : PLUS factor
        | TRUE
        | FALSE
        | LPAREN expr RPAREN
-       | variable
+       | call
+       | identifier
 
-variable: ID
+identifier: ID
 */
 
 type Parser struct {
 	lexer        *lexer.Lexer
 	currentToken tokens.Token
+	nextToken    tokens.Token
 }
 
 func NewParser(lexer *lexer.Lexer) (*Parser, error) {
@@ -81,9 +95,15 @@ func NewParser(lexer *lexer.Lexer) (*Parser, error) {
 		return nil, err
 	}
 
+	nextToken, err := lexer.GetNextToken()
+	if err != nil {
+		return nil, err
+	}
+
 	return &Parser{
 		lexer:        lexer,
 		currentToken: token,
+		nextToken:    nextToken,
 	}, nil
 }
 
@@ -109,12 +129,15 @@ func (p *Parser) eat(tokenType tokens.TokenType) error {
 		return p.error(errors.UnexpectedToken)
 	}
 
+	p.currentToken = p.nextToken
+
 	token, err := p.lexer.GetNextToken()
 	if err != nil {
 		return err
 	}
 
-	p.currentToken = token
+	p.nextToken = token
+
 	return nil
 }
 
@@ -123,7 +146,7 @@ func (p *Parser) program() (ir.Node, error) {
 		return nil, err
 	}
 
-	varNode, err := p.variable()
+	varNode, err := p.identifier()
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +172,7 @@ func (p *Parser) program() (ir.Node, error) {
 }
 
 func (p *Parser) block() (*ir.Block, error) {
-	declarationNodes, err := p.declarations()
+	declarationNodes, err := p.declarationList()
 	if err != nil {
 		return nil, err
 	}
@@ -163,9 +186,24 @@ func (p *Parser) block() (*ir.Block, error) {
 	return node, nil
 }
 
-func (p *Parser) declarations() ([]ir.Node, error) {
+func (p *Parser) declarationList() ([]ir.Node, error) {
 	var declarations []ir.Node
-	for p.currentToken.Type == tokens.VAR {
+
+	for p.currentToken.Type == tokens.VAR || p.currentToken.Type == tokens.PROCEDURE || p.currentToken.Type == tokens.FUNCTION {
+		newDeclarations, err := p.declaration()
+		if err != nil {
+			return nil, err
+		}
+
+		declarations = append(declarations, newDeclarations...)
+	}
+
+	return declarations, nil
+}
+
+func (p *Parser) declaration() ([]ir.Node, error) {
+	var declarations []ir.Node
+	if p.currentToken.Type == tokens.VAR {
 		if err := p.eat(tokens.VAR); err != nil {
 			return nil, err
 		}
@@ -184,21 +222,34 @@ func (p *Parser) declarations() ([]ir.Node, error) {
 				return nil, err
 			}
 		}
+
+		return declarations, nil
 	}
 
-	for p.currentToken.Type == tokens.PROCEDURE {
-		procDecl, err := p.ProcedureDeclaraton()
+	if p.currentToken.Type == tokens.PROCEDURE {
+		procDecl, err := p.procedureDeclaraton()
 		if err != nil {
 			return nil, err
 		}
 
 		declarations = append(declarations, procDecl)
+		return declarations, nil
 	}
 
-	return declarations, nil
+	if p.currentToken.Type == tokens.FUNCTION {
+		funcDecl, err := p.functionDeclaration()
+		if err != nil {
+			return nil, err
+		}
+
+		declarations = append(declarations, funcDecl)
+		return declarations, nil
+	}
+
+	return nil, p.error(errors.UnexpectedToken)
 }
 
-func (p *Parser) ProcedureDeclaraton() (*ir.ProcedureDecl, error) {
+func (p *Parser) procedureDeclaraton() (*ir.ProcedureDecl, error) {
 	if err := p.eat(tokens.PROCEDURE); err != nil {
 		return nil, err
 	}
@@ -246,6 +297,63 @@ func (p *Parser) ProcedureDeclaraton() (*ir.ProcedureDecl, error) {
 	return procDecl, nil
 }
 
+func (p *Parser) functionDeclaration() (*ir.FunctionDecl, error) {
+	if err := p.eat(tokens.FUNCTION); err != nil {
+		return nil, err
+	}
+
+	funcName := p.currentToken.Value.(string)
+
+	if err := p.eat(tokens.ID); err != nil {
+		return nil, err
+	}
+
+	var params []*ir.Param
+
+	if p.currentToken.Type == tokens.LPAREN {
+		if err := p.eat(tokens.LPAREN); err != nil {
+			return nil, err
+		}
+
+		paramNodes, err := p.formalParameterList()
+		if err != nil {
+			return nil, err
+		}
+
+		params = append(params, paramNodes...)
+
+		if err := p.eat(tokens.RPAREN); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := p.eat(tokens.COLON); err != nil {
+		return nil, err
+	}
+
+	typeNode, err := p.typeSpec()
+	if err != nil {
+		return nil, err
+	}
+
+	if err := p.eat(tokens.SEMI); err != nil {
+		return nil, err
+	}
+
+	blockNode, err := p.block()
+	if err != nil {
+		return nil, err
+	}
+
+	funcDecl := ir.NewFunctionDecl(funcName, blockNode, params, typeNode)
+
+	if err := p.eat(tokens.SEMI); err != nil {
+		return nil, err
+	}
+
+	return funcDecl, nil
+}
+
 func (p *Parser) formalParamaters() ([]*ir.Param, error) {
 	var paramNodes []*ir.Param
 
@@ -277,7 +385,7 @@ func (p *Parser) formalParamaters() ([]*ir.Param, error) {
 	}
 
 	for _, paramToken := range paramTokens {
-		paramNode := ir.NewParam(ir.NewVar(paramToken), typeNode)
+		paramNode := ir.NewParam(ir.NewIdentifier(paramToken), typeNode)
 		paramNodes = append(paramNodes, paramNode)
 	}
 
@@ -311,7 +419,7 @@ func (p *Parser) formalParameterList() ([]*ir.Param, error) {
 }
 
 func (p *Parser) variableDeclaration() ([]*ir.VarDecl, error) {
-	varNodes := []*ir.Var{{
+	varNodes := []*ir.Identifier{{
 		Token: p.currentToken,
 		Value: p.currentToken.Value.(string),
 	}}
@@ -324,7 +432,7 @@ func (p *Parser) variableDeclaration() ([]*ir.VarDecl, error) {
 			return nil, err
 		}
 
-		varNodes = append(varNodes, ir.NewVar(p.currentToken))
+		varNodes = append(varNodes, ir.NewIdentifier(p.currentToken))
 		if err := p.eat(tokens.ID); err != nil {
 			return nil, err
 		}
@@ -432,10 +540,10 @@ func (p *Parser) statement() (ir.Node, error) {
 	case tokens.BEGIN:
 		return p.compoundStatement()
 	case tokens.ID:
-		if p.lexer.CurrentChar == '(' {
-			return p.ProcCallStatement()
-		} else {
+		if p.nextToken.Type == tokens.ASSIGN {
 			return p.assignmentStatement()
+		} else {
+			return p.call()
 		}
 	case tokens.WRITELN:
 		return p.writeStatement()
@@ -500,36 +608,38 @@ func (p *Parser) writeStatement() (*ir.WriteStatement, error) {
 		}
 	}
 
-	if err := p.eat(tokens.LPAREN); err != nil {
-		return nil, err
-	}
-
 	var expressions []ir.Node
 
-	if p.currentToken.Type != tokens.RPAREN {
-		node, err := p.expr()
-		if err != nil {
+	if p.currentToken.Type == tokens.LPAREN {
+		if err := p.eat(tokens.LPAREN); err != nil {
 			return nil, err
 		}
 
-		expressions = append(expressions, node)
-	}
+		if p.currentToken.Type != tokens.RPAREN {
+			node, err := p.expr()
+			if err != nil {
+				return nil, err
+			}
 
-	for p.currentToken.Type == tokens.COMMA {
-		if err := p.eat(tokens.COMMA); err != nil {
-			return nil, err
+			expressions = append(expressions, node)
 		}
 
-		node, err := p.expr()
-		if err != nil {
-			return nil, err
+		for p.currentToken.Type == tokens.COMMA {
+			if err := p.eat(tokens.COMMA); err != nil {
+				return nil, err
+			}
+
+			node, err := p.expr()
+			if err != nil {
+				return nil, err
+			}
+
+			expressions = append(expressions, node)
 		}
 
-		expressions = append(expressions, node)
-	}
-
-	if err := p.eat(tokens.RPAREN); err != nil {
-		return nil, err
+		if err := p.eat(tokens.RPAREN); err != nil {
+			return nil, err
+		}
 	}
 
 	if token.Type == tokens.WRITE {
@@ -539,51 +649,55 @@ func (p *Parser) writeStatement() (*ir.WriteStatement, error) {
 	}
 }
 
-func (p *Parser) ProcCallStatement() (*ir.ProcedureCall, error) {
+func (p *Parser) call() (ir.Node, error) {
 	token := p.currentToken
-	procName := token.Value.(string)
+	callName := token.Value.(string)
 
 	if err := p.eat(tokens.ID); err != nil {
 		return nil, err
 	}
 
-	if err := p.eat(tokens.LPAREN); err != nil {
-		return nil, err
-	}
-
-	var actualParams []ir.Node
-
-	if p.currentToken.Type != tokens.RPAREN {
-		node, err := p.expr()
-		if err != nil {
+	if p.currentToken.Type == tokens.LPAREN {
+		if err := p.eat(tokens.LPAREN); err != nil {
 			return nil, err
 		}
 
-		actualParams = append(actualParams, node)
-	}
+		var actualParams []ir.Node
 
-	for p.currentToken.Type == tokens.COMMA {
-		if err := p.eat(tokens.COMMA); err != nil {
+		if p.currentToken.Type != tokens.RPAREN {
+			node, err := p.expr()
+			if err != nil {
+				return nil, err
+			}
+
+			actualParams = append(actualParams, node)
+		}
+
+		for p.currentToken.Type == tokens.COMMA {
+			if err := p.eat(tokens.COMMA); err != nil {
+				return nil, err
+			}
+
+			node, err := p.expr()
+			if err != nil {
+				return nil, err
+			}
+
+			actualParams = append(actualParams, node)
+		}
+
+		if err := p.eat(tokens.RPAREN); err != nil {
 			return nil, err
 		}
 
-		node, err := p.expr()
-		if err != nil {
-			return nil, err
-		}
-
-		actualParams = append(actualParams, node)
+		return ir.NewCall(callName, actualParams, token), nil
 	}
 
-	if err := p.eat(tokens.RPAREN); err != nil {
-		return nil, err
-	}
-
-	return ir.NewProcedureCall(procName, actualParams, token), nil
+	return ir.NewCall(callName, nil, token), nil
 }
 
 func (p *Parser) assignmentStatement() (*ir.Assign, error) {
-	left, err := p.variable()
+	left, err := p.identifier()
 	if err != nil {
 		return nil, err
 	}
@@ -604,8 +718,8 @@ func (p *Parser) assignmentStatement() (*ir.Assign, error) {
 	return node, nil
 }
 
-func (p *Parser) variable() (*ir.Var, error) {
-	node := ir.NewVar(p.currentToken)
+func (p *Parser) identifier() (*ir.Identifier, error) {
+	node := ir.NewIdentifier(p.currentToken)
 
 	if err := p.eat(tokens.ID); err != nil {
 		return nil, err
@@ -692,7 +806,10 @@ func (p *Parser) factor() (ir.Node, error) {
 		return ir.NewBooleanLit(token), nil
 
 	default:
-		return p.variable()
+		if p.currentToken.Type == tokens.ID && p.nextToken.Type == tokens.LPAREN {
+			return p.call()
+		}
+		return p.identifier()
 	}
 }
 

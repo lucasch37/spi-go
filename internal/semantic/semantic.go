@@ -48,6 +48,9 @@ func (sa *SemanticAnalyzer) visit(node ir.Node) (ir.DataType, error) {
 	case *ir.ProcedureDecl:
 		return sa.visitProcedureDecl(node)
 
+	case *ir.FunctionDecl:
+		return sa.visitFunctionDecl(node)
+
 	case *ir.Block:
 		for _, decl := range node.Declarations {
 			if _, err := sa.visit(decl); err != nil {
@@ -98,11 +101,11 @@ func (sa *SemanticAnalyzer) visit(node ir.Node) (ir.DataType, error) {
 	case *ir.Assign:
 		return sa.visitAssign(node)
 
-	case *ir.Var:
-		return sa.visitVar(node)
+	case *ir.Identifier:
+		return sa.visitIdentifier(node)
 
-	case *ir.ProcedureCall:
-		return sa.visitProcedureCall(node)
+	case *ir.Call:
+		return sa.visitCall(node)
 
 	case *ir.WriteStatement:
 		for _, node := range node.Exprs {
@@ -241,7 +244,7 @@ func (sa *SemanticAnalyzer) visitProcedureDecl(node *ir.ProcedureDecl) (ir.DataT
 			return ir.NoType, sa.error(errors.InvalidType, param.TypeNode.Token)
 		}
 
-		paramName := param.VarNode.Value
+		paramName := param.IdNode.Value
 		varSymbol := ir.NewVarSymbol(paramName, paramType)
 
 		sa.CurrentScope.Insert(varSymbol)
@@ -262,6 +265,46 @@ func (sa *SemanticAnalyzer) visitProcedureDecl(node *ir.ProcedureDecl) (ir.DataT
 	return ir.NoType, nil
 }
 
+func (sa *SemanticAnalyzer) visitFunctionDecl(node *ir.FunctionDecl) (ir.DataType, error) {
+	funcName := node.FuncName
+	funcSymbol := ir.NewFunctionSymbol(funcName, make([]*ir.VarSymbol, 0))
+	sa.CurrentScope.Insert(funcSymbol)
+
+	funcSymbol.ReturnTypeNode = node.ReturnType
+
+	sa.log(fmt.Sprintf("ENTER scope: %s", funcName))
+	funcScope := ir.NewSymbolTable(funcName, sa.CurrentScope.ScopeLevel+1, sa.CurrentScope, sa.ShouldLogScope)
+	sa.CurrentScope = funcScope
+
+	for _, param := range node.Params {
+		symbol := sa.CurrentScope.Lookup(param.TypeNode.Value, false)
+
+		paramType, ok := symbol.(*ir.BuiltinTypeSymbol)
+		if !ok {
+			return ir.NoType, sa.error(errors.InvalidType, param.TypeNode.Token)
+		}
+
+		paramName := param.IdNode.Value
+		varSymbol := ir.NewVarSymbol(paramName, paramType)
+
+		sa.CurrentScope.Insert(varSymbol)
+		funcSymbol.Params = append(funcSymbol.Params, varSymbol)
+	}
+
+	if _, err := sa.visit(node.Block); err != nil {
+		return ir.NoType, err
+	}
+
+	sa.log(funcScope.String())
+
+	sa.CurrentScope = sa.CurrentScope.EnclosingScope
+	sa.log(fmt.Sprintf("LEAVE scope: %s", funcName))
+
+	funcSymbol.BlockNode = node.Block
+
+	return ir.NoType, nil
+}
+
 func (sa *SemanticAnalyzer) visitVarDecl(node *ir.VarDecl) (ir.DataType, error) {
 	typeName := node.TypeNode.Value
 	symbol := sa.CurrentScope.Lookup(typeName, false)
@@ -271,14 +314,16 @@ func (sa *SemanticAnalyzer) visitVarDecl(node *ir.VarDecl) (ir.DataType, error) 
 		return ir.NoType, sa.error(errors.InvalidType, node.TypeNode.Token)
 	}
 
-	varName := node.VarNode.Value
+	varName := node.IdNode.Value
 	varSymbol := ir.NewVarSymbol(varName, typeSymbol)
 
 	if sa.CurrentScope.Lookup(varName, true) != nil {
-		return ir.NoType, sa.error(errors.DuplicateID, node.VarNode.Token)
+		return ir.NoType, sa.error(errors.DuplicateID, node.IdNode.Token)
 	}
 
 	sa.CurrentScope.Insert(varSymbol)
+
+	node.IdNode.Symbol = varSymbol
 
 	return ir.NoType, nil
 }
@@ -301,53 +346,66 @@ func (sa *SemanticAnalyzer) visitAssign(node *ir.Assign) (ir.DataType, error) {
 	return ir.NoType, nil
 }
 
-func (sa *SemanticAnalyzer) visitVar(node *ir.Var) (ir.DataType, error) {
+func (sa *SemanticAnalyzer) visitIdentifier(node *ir.Identifier) (ir.DataType, error) {
 	varName := node.Value
 	symbol := sa.CurrentScope.Lookup(varName, false)
 	if symbol == nil {
 		return ir.NoType, sa.error(errors.IDNotFound, node.Token)
 	}
 
-	varSymbol, ok := symbol.(*ir.VarSymbol)
-	if !ok {
-		return ir.NoType, sa.error(errors.IDNotFound, node.Token)
-	}
+	switch symbol := symbol.(type) {
+	case *ir.VarSymbol:
+		node.Symbol = symbol
+		return symbol.TypeSymbol.DataType, nil
 
-	return varSymbol.TypeSymbol.DataType, nil
+	case *ir.FunctionSymbol:
+		node.Symbol = symbol
+		return symbol.ReturnType(), nil
+
+	}
+	return ir.NoType, sa.error(errors.IDNotFound, node.Token)
 }
 
-func (sa *SemanticAnalyzer) visitProcedureCall(node *ir.ProcedureCall) (ir.DataType, error) {
-	actualParamCount := len(node.ActualParams)
-
-	symbol := sa.CurrentScope.Lookup(node.ProcName, false)
+func (sa *SemanticAnalyzer) visitCall(node *ir.Call) (ir.DataType, error) {
+	symbol := sa.CurrentScope.Lookup(node.CallName, false)
 	if symbol == nil {
 		return ir.NoType, sa.error(errors.IDNotFound, node.Token)
 	}
 
-	procSymbol, ok := symbol.(*ir.ProcedureSymbol)
+	var params []*ir.VarSymbol
 
-	if !ok {
-		return ir.NoType, sa.error(errors.NotCallable, node.Token)
+	switch symbol := symbol.(type) {
+	case *ir.ProcedureSymbol:
+		params = symbol.Params
+		node.Symbol = symbol
+
+	case *ir.FunctionSymbol:
+		params = symbol.Params
+		node.Symbol = symbol
+
+	default:
+		return ir.NoType, nil
 	}
 
-	paramCount := len(procSymbol.Params)
-
-	if paramCount != actualParamCount {
+	if len(params) != len(node.ActualParams) {
 		return ir.NoType, sa.error(errors.WrongParamCount, node.Token)
 	}
 
-	for _, param := range node.ActualParams {
+	for i, param := range node.ActualParams {
 		paramType, err := sa.visit(param)
 		if err != nil {
 			return ir.NoType, err
 		}
 
-		if paramType != procSymbol.Params[0].TypeSymbol.DataType {
+		if paramType != params[i].TypeSymbol.DataType {
 			return ir.NoType, sa.error(errors.TypeMismatch, param.SourceToken())
 		}
 	}
 
-	node.ProcSymbol = procSymbol
+	funcSymbol, ok := symbol.(*ir.FunctionSymbol)
+	if ok {
+		return funcSymbol.ReturnType(), nil
+	}
 
 	return ir.NoType, nil
 }

@@ -73,8 +73,8 @@ func (i *Interpreter) visit(node ir.Node) (Object, error) {
 	case *ir.Assign:
 		return i.visitAssign(node)
 
-	case *ir.Var:
-		return i.visitVar(node)
+	case *ir.Identifier:
+		return i.visitIdentifier(node)
 
 	case *ir.Program:
 		return i.visitProgram(node)
@@ -91,8 +91,11 @@ func (i *Interpreter) visit(node ir.Node) (Object, error) {
 	case *ir.ProcedureDecl:
 		return i.visitProcedureDecl(node)
 
-	case *ir.ProcedureCall:
-		return i.visitProcedureCall(node)
+	case *ir.FunctionDecl:
+		return i.visitFunctionDecl(node)
+
+	case *ir.Call:
+		return i.visitCall(node)
 
 	case *ir.WriteStatement:
 		return i.visitWriteStatement(node)
@@ -347,8 +350,14 @@ func (i *Interpreter) visitUnaryOp(node *ir.UnaryOp) (Object, error) {
 
 func (i *Interpreter) visitCompound(node *ir.Compound) (Object, error) {
 	for _, child := range node.Children {
-		if _, err := i.visit(child); err != nil {
+		value, err := i.visit(child)
+
+		if err != nil {
 			return nil, err
+		}
+
+		if value != nil {
+			return value, nil
 		}
 	}
 
@@ -360,24 +369,55 @@ func (i *Interpreter) visitNoOp(node *ir.NoOp) (Object, error) {
 }
 
 func (i *Interpreter) visitAssign(node *ir.Assign) (Object, error) {
-	varName := node.Left.Value
 	value, err := i.visit(node.Right)
 	if err != nil {
 		return nil, err
 	}
 
-	ar := i.CallStack.Peek()
-	ar.Set(varName, value)
+	name := node.Left.Value
+
+	switch node.Left.Symbol.(type) {
+	case *ir.VarSymbol:
+		ar := i.CallStack.Peek()
+		ar.Set(name, value)
+
+	case *ir.FunctionSymbol:
+		return value, nil
+	}
 
 	return nil, nil
 }
 
-func (i *Interpreter) visitVar(node *ir.Var) (Object, error) {
-	varName := node.Value
+func (i *Interpreter) visitIdentifier(node *ir.Identifier) (Object, error) {
+	name := node.Value
 
-	value := i.CallStack.Lookup(varName)
+	switch symbol := node.Symbol.(type) {
+	case *ir.VarSymbol:
+		value := i.CallStack.Lookup(name)
+		return value, nil
 
-	return value, nil
+	case *ir.FunctionSymbol:
+		ar := NewActivationRecord(name, FUNCTION, symbol.ScopeLevel+1)
+
+		i.CallStack.Push(ar)
+
+		i.log(fmt.Sprintf("ENTER: %s %s", FUNCTION.String(), name))
+		i.log(i.CallStack.String())
+
+		value, err := i.visit(symbol.BlockNode)
+		if err != nil {
+			return nil, err
+		}
+
+		i.log(fmt.Sprintf("LEAVE: %s %s", FUNCTION.String(), name))
+		i.log(i.CallStack.String())
+
+		i.CallStack.Pop()
+
+		return value, nil
+	}
+
+	return nil, fmt.Errorf("unknown identifier: %s", name)
 }
 
 func (i *Interpreter) visitBlock(node *ir.Block) (Object, error) {
@@ -402,16 +442,42 @@ func (i *Interpreter) visitProcedureDecl(node *ir.ProcedureDecl) (Object, error)
 	return nil, nil
 }
 
-func (i *Interpreter) visitProcedureCall(node *ir.ProcedureCall) (Object, error) {
-	procName := node.ProcName
+func (i *Interpreter) visitFunctionDecl(node *ir.FunctionDecl) (Object, error) {
+	return nil, nil
+}
 
-	ar := NewActivationRecord(procName, PROCEDURE, node.ProcSymbol.ScopeLevel+1)
+func (i *Interpreter) visitCall(node *ir.Call) (Object, error) {
+	var (
+		name       string
+		scopeLevel int
+		params     []*ir.VarSymbol
+		block      *ir.Block
+		recordType ARType
+	)
 
-	formalParams := node.ProcSymbol.Params
-	actualParams := node.ActualParams
+	switch symbol := node.Symbol.(type) {
+	case *ir.ProcedureSymbol:
+		name = node.CallName
+		scopeLevel = symbol.ScopeLevel
+		params = symbol.Params
+		block = symbol.BlockNode
+		recordType = PROCEDURE
 
-	for index, paramSymbol := range formalParams {
-		paramValue, err := i.visit(actualParams[index])
+	case *ir.FunctionSymbol:
+		name = node.CallName
+		scopeLevel = symbol.ScopeLevel
+		params = symbol.Params
+		block = symbol.BlockNode
+		recordType = FUNCTION
+
+	default:
+		return nil, fmt.Errorf("unknown call: %s", node.CallName)
+	}
+
+	ar := NewActivationRecord(name, recordType, scopeLevel+1)
+
+	for index, paramSymbol := range params {
+		paramValue, err := i.visit(node.ActualParams[index])
 		if err != nil {
 			return nil, err
 		}
@@ -421,17 +487,23 @@ func (i *Interpreter) visitProcedureCall(node *ir.ProcedureCall) (Object, error)
 
 	i.CallStack.Push(ar)
 
-	i.log(fmt.Sprintf("ENTER: PROCEDURE %s", procName))
+	i.log(fmt.Sprintf("ENTER: %s %s", recordType.String(), name))
 	i.log(i.CallStack.String())
 
-	if _, err := i.visit(node.ProcSymbol.BlockNode); err != nil {
+	value, err := i.visit(block)
+	if err != nil {
 		return nil, err
 	}
 
-	i.log(fmt.Sprintf("LEAVE: PROCEDURE %s", procName))
+	i.log(fmt.Sprintf("LEAVE: %s %s", recordType.String(), name))
 	i.log(i.CallStack.String())
 
 	i.CallStack.Pop()
+
+	_, ok := node.Symbol.(*ir.FunctionSymbol)
+	if ok && value != nil {
+		return value, nil
+	}
 
 	return nil, nil
 }
@@ -475,9 +547,21 @@ func (i *Interpreter) visitIfStatement(node *ir.IfStatement) (Object, error) {
 	}
 
 	if boolCondition.Value {
-		i.visit(node.Statement)
+		value, err := i.visit(node.Statement)
+		if err != nil {
+			return nil, err
+		}
+		if value != nil {
+			return value, nil
+		}
 	} else if node.Alternative != nil {
-		i.visit(node.Alternative)
+		value, err := i.visit(node.Alternative)
+		if err != nil {
+			return nil, err
+		}
+		if value != nil {
+			return value, nil
+		}
 	}
 
 	return nil, nil

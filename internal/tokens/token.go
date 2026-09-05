@@ -28,6 +28,7 @@ const (
 	INTEGER_DIV
 	VAR
 	PROCEDURE
+	FUNCTION
 	WRITE
 	WRITELN
 	TRUE
@@ -74,6 +75,7 @@ var tokenTypeNames = [...]string{
 	"DIV",
 	"VAR",
 	"PROCEDURE",
+	"FUNCTION",
 	"WRITE",
 	"WRITELN",
 	"TRUE",
